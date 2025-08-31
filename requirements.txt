@@ -1,0 +1,4 @@
+feedparser==6.0.10
+pymisp==2.4.170
+beautifulsoup4==4.12.2
+python-dateutil==2.8.2
