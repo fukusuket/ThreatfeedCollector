@@ -1,4 +1,4 @@
-# Threat Intelligence Collector
+# Threat feed Collector
 
 A Python tool that extracts Indicators of Compromise (IoCs) from RSS threat intelligence feeds and creates events in MISP (Malware Information Sharing Platform).
 
