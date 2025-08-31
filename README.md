@@ -79,5 +79,3 @@ The tool will:
 - **IP Addresses**: Public IPv4 addresses
 - **FQDNs**: Domain names (excluding common domains)
 - **Hashes**: MD5, SHA-1, and SHA-256 hashes
-
-## License
