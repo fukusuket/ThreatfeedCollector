@@ -9,6 +9,7 @@ import sys
 import time
 import logging
 import re
+import requests
 import urllib3
 from datetime import datetime, timedelta
 from collections import defaultdict
@@ -26,7 +27,7 @@ RSS_FEEDS_CSV = os.getenv('RSS_FEEDS_CSV', 'rss_feeds.csv')
 MISP_URL = os.getenv('MISP_URL', 'https://localhost')
 MISP_KEY = os.getenv('MISP_KEY', 'your_misp_key')
 OUTPUT_CSV = os.getenv('OUTPUT_CSV', f'ioc_stats_{datetime.now().strftime("%Y%m%d")}.csv')
-DAYS_BACK = int(os.getenv('DAYS_BACK', '1'))
+DAYS_BACK = int(os.getenv('DAYS_BACK', '10'))
 
 logging.basicConfig(
     level=logging.INFO,
@@ -100,11 +101,9 @@ def extract_iocs(text: str) -> Dict[str, Set[str]]:
 
 
 def extract_content(entry) -> str:
-    """Extract clean text from RSS entry"""
-    content = getattr(entry, 'summary', '') or \
-              (entry.content[0].value if hasattr(entry, 'content') and entry.content else '') or \
-              getattr(entry, 'description', '')
-
+    url = entry.get('link', '')
+    logger.info(url)
+    content = requests.get(url, timeout=10, verify=False).text if url else ""
     return BeautifulSoup(content, 'html.parser').get_text() if content else ""
 
 
@@ -112,8 +111,9 @@ def process_feed(vendor_name, feed_url: str, cutoff_date: datetime) -> List[Dict
 
     try:
         logger.info(f"Fetching RSS feed: {feed_url}")
-        feed = feedparser.parse(feed_url)
-
+        response = requests.get(feed_url, timeout=10, verify=False)
+        response.raise_for_status()
+        feed = feedparser.parse(response.content)
         if not hasattr(feed, 'entries'):
             return []
 
@@ -121,6 +121,7 @@ def process_feed(vendor_name, feed_url: str, cutoff_date: datetime) -> List[Dict
         for entry in feed.entries:
             pub_date = entry.get('published', '')
             if is_recent(pub_date, cutoff_date):
+                logger.info(f"Found recent article: {entry.get('title', '')}")
                 articles.append({
                     'title': entry.get('title', ''),
                     'date': pub_date,
@@ -195,6 +196,7 @@ if __name__ == "__main__":
     # Process feeds
     with open(RSS_FEEDS_CSV, 'r') as f:
         reader = csv.reader(f)
+        next(reader)
         feeds = [(row[0], row[1]) for row in reader if row and not row[0].startswith('#')]
 
     for (vendor, feed_url) in feeds:
@@ -204,7 +206,7 @@ if __name__ == "__main__":
             logger.info(f"Processing: {article['title']}")
 
             # Extract IoCs
-            text = f"{article['title']} {article['content']}"
+            text = article['content']
             iocs = extract_iocs(text)
 
             # Update stats
@@ -213,6 +215,7 @@ if __name__ == "__main__":
 
             total_iocs = sum(len(s) for s in iocs.values())
             logger.info(f"Extracted {total_iocs} IoCs")
+            logger.info(iocs)
 
             # Create MISP event if IoCs found
             if total_iocs > 0:
