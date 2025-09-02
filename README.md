@@ -80,3 +80,8 @@ The tool will:
 - **IP Addresses**: Public IPv4 addresses
 - **FQDNs**: Domain names (excluding common domains)
 - **Hashes**: MD5, SHA-1, and SHA-256 hashes
+
+## Acknowledgements
+- [MISP/PyMISP](https://github.com/MISP/PyMISP)
+- [kurtmckee/feedparser](https://github.com/kurtmckee/feedparser)
+- [InQuest/iocextract](https://github.com/InQuest/iocextract)
