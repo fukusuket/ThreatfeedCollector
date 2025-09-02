@@ -16,7 +16,7 @@ from typing import Dict, List, Set
 
 import feedparser
 from bs4 import BeautifulSoup
-from pymisp import PyMISP
+from pymisp import PyMISP, MISPEvent
 from dateutil import parser as date_parser
 import iocextract
 from pymispwarninglists import WarningLists
@@ -26,7 +26,7 @@ urllib3.disable_warnings()
 # Configuration
 RSS_FEEDS_CSV = os.getenv('RSS_FEEDS_CSV', 'rss_feeds.csv')
 MISP_URL = os.getenv('MISP_URL', 'https://localhost')
-MISP_KEY = os.getenv('MISP_KEY', 'your_misp_key_here')
+MISP_KEY = os.getenv('MISP_KEY', 'your key')
 OUTPUT_CSV = os.getenv('OUTPUT_CSV', f'ioc_stats_{datetime.now().strftime("%Y%m%d")}.csv')
 DAYS_BACK = int(os.getenv('DAYS_BACK', '7'))
 
@@ -214,11 +214,55 @@ def create_misp_event(misp: PyMISP, article: Dict, iocs: Dict[str, Set[str]]) ->
         event_title = f"[{article['vendor']}] {article['title'][:100]}"  # Truncate title
         logger.info(f"Creating MISP event: {event_title}")
 
-        # For demo purposes, we're just logging what would be created
-        # In a real implementation, you would create the actual MISP event here
-        logger.info(f"Would create MISP event with {sum(len(s) for s in iocs.values())} IOCs")
+        # Check if event with same title already exists
+        try:
+            existing_events = misp.search(eventinfo=event_title)
+            if existing_events and len(existing_events) > 0:
+                logger.info(f"Event with same title already exists, skipping: {event_title}")
+                return False
+            logger.info(f"No existing event found with title: {event_title}")
+        except Exception as e:
+            logger.warning(f"Failed to search for existing events: {e}")
+            # Continue with creation if search fails
 
+        # Create new MISP event
+        event = MISPEvent()
+        event.info = event_title
+        event.add_tag('workflow:state="draft"')
+        event.add_attribute(type="url", value=article['url'], category='External analysis', to_ids=False)
+        # Add attributes
+        for ioc_type, ioc_set in iocs.items():
+            for ioc in ioc_set:
+                if ioc_type == 'urls':
+                    attr_type = 'url'
+                    continue
+                elif ioc_type == 'ips':
+                    attr_type = 'ip-dst'
+                elif ioc_type == 'fqdns':
+                    attr_type = 'hostname'
+                elif ioc_type == 'hashes':
+                    # Determine hash type by length
+                    if len(ioc) == 32:
+                        attr_type = 'md5'
+                    elif len(ioc) == 40:
+                        attr_type = 'sha1'
+                    elif len(ioc) == 64:
+                        attr_type = 'sha256'
+                    elif len(ioc) == 128:
+                        attr_type = 'sha512'
+                    else:
+                        continue
+                else:
+                    continue
+                try:
+                    event.add_attribute(type=attr_type, value=ioc, category='Network activity', to_ids=True)
+                except Exception as e:
+                    logger.warning(f"Failed to add attribute {ioc} of type {attr_type}: {e}")
+        event = misp.add_event(event, pythonify=True)
+        event_id = event['Event']['id']
+        logger.info(f"Created MISP event with ID: {event_id}")
         return True
+
     except Exception as e:
         logger.error(f"Failed to create MISP event: {e}")
         return False
