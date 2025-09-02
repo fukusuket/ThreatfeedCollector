@@ -255,7 +255,7 @@ def to_yyyy_mm_dd(date_str: str) -> str:
 def create_misp_event(misp: PyMISP, article: Dict, iocs: Dict[str, Set[str]]) -> bool:
     """Create MISP event with extracted IOCs"""
     try:
-        event_title = f"[{article['date']}] [{article['vendor']}] {article['title'][:100]}"  # Truncate title
+        event_title = f"[{article['vendor']}] {article['title'][:100]}"  # Truncate title
         logger.info(f"Creating MISP event: {event_title}")
 
         # Check if event with same title already exists
