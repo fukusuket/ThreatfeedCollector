@@ -1,5 +1,9 @@
 Vendor, RSS Feed URL, Blog URL
-Unit42(Palo Alto Networks),https://unit42.paloaltonetworks.com/category/threat-research/rss,https://unit42.paloaltonetworks.com/category/threat-research/
-Huntress Labs,https://www.huntress.com/blog/rss.xml,https://www.huntress.com/blog-categories/threat-analysis
-Sekoia,https://blog.sekoia.io/feed/,https://blog.sekoia.io
+Check Point,https://research.checkpoint.com/feed/,https://research.checkpoint.com/
+Cisco Talos,https://blog.talosintelligence.com/rss/,https://blog.talosintelligence.com/
 Google Cloud Threat Intelligence,https://feeds.feedburner.com/threatintelligence/pvexyqv7v0v,https://cloud.google.com/blog/topics/threat-intelligence
+Huntress Labs,https://www.huntress.com/blog/rss.xml,https://www.huntress.com/blog-categories/threat-analysis
+Kaspersky,https://www.kaspersky.com/blog/feed/,https://www.kaspersky.com/blog/
+Microsoft Security Blog,https://www.microsoft.com/en-us/security/blog/feed/,https://www.microsoft.com/en-us/security/blog/
+Sekoia,https://blog.sekoia.io/feed/,https://blog.sekoia.io
+Unit42(Palo Alto Networks),https://unit42.paloaltonetworks.com/category/threat-research/rss,https://unit42.paloaltonetworks.com/category/threat-research/
