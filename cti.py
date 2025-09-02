@@ -364,11 +364,14 @@ if __name__ == "__main__":
 
         for article in articles:
             logger.info(f"Processing article: {article['title'][:100]}...")
-            # Extract IoCs using iocextract
             url = article['url']
             if url:
                 response = requests.get(url, timeout=10, verify=False)
-                response.raise_for_status()
+                try:
+                    response.raise_for_status()
+                except Exception as e:
+                    logger.warning(f"Failed to fetch article content from {url}: {e}")
+                    continue
                 soup = BeautifulSoup(response.text, 'html.parser')
                 # Remove script and style elements
                 for script in soup(["script", "style"]):
