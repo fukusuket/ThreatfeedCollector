@@ -366,17 +366,17 @@ if __name__ == "__main__":
             logger.info(f"Processing article: {article['title'][:100]}...")
             url = article['url']
             if url:
-                response = requests.get(url, timeout=10, verify=False)
                 try:
+                    response = requests.get(url, timeout=10, verify=False)
                     response.raise_for_status()
+                    soup = BeautifulSoup(response.text, 'html.parser')
+                    # Remove script and style elements
+                    for script in soup(["script", "style"]):
+                        script.decompose()
+                    text = soup.get_text()
                 except Exception as e:
                     logger.warning(f"Failed to fetch article content from {url}: {e}")
                     continue
-                soup = BeautifulSoup(response.text, 'html.parser')
-                # Remove script and style elements
-                for script in soup(["script", "style"]):
-                    script.decompose()
-                text = soup.get_text()
             else:
                 text = article['content']
             iocs = extract_iocs(text)
