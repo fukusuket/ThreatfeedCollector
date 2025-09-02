@@ -20,7 +20,7 @@ import feedparser
 from bs4 import BeautifulSoup
 from feedparser import USER_AGENT
 from pymisp import PyMISP, MISPEvent
-from dateutil import parser as date_parser
+from dateutil import parser
 import iocextract
 from pymispwarninglists import WarningLists
 
@@ -63,7 +63,7 @@ def is_recent(date_str: str, cutoff_date: datetime) -> bool:
     if not date_str:
         return True
     try:
-        article_date = date_parser.parse(date_str)
+        article_date = parser.parse(date_str)
         if article_date.tzinfo:
             article_date = article_date.replace(tzinfo=None)
         return article_date >= cutoff_date
@@ -245,10 +245,17 @@ def process_feed(vendor_name: str, feed_url: str, cutoff_date: datetime) -> List
         return []
 
 
+def to_yyyy_mm_dd(date_str: str) -> str:
+    try:
+        dt = parser.parse(date_str)
+        return dt.strftime("%Y-%m-%d")
+    except Exception:
+        return datetime.utcnow().strftime("%Y-%m-%d")
+
 def create_misp_event(misp: PyMISP, article: Dict, iocs: Dict[str, Set[str]]) -> bool:
     """Create MISP event with extracted IOCs"""
     try:
-        event_title = f"[{article['vendor']}] {article['title'][:100]}"  # Truncate title
+        event_title = f"[{article['date']}] [{article['vendor']}] {article['title'][:100]}"  # Truncate title
         logger.info(f"Creating MISP event: {event_title}")
 
         # Check if event with same title already exists
@@ -265,6 +272,7 @@ def create_misp_event(misp: PyMISP, article: Dict, iocs: Dict[str, Set[str]]) ->
         # Create new MISP event
         event = MISPEvent()
         event.info = event_title
+        event.date = to_yyyy_mm_dd(article['date'])
         event.add_tag('workflow:state="draft"')
         event.add_attribute(type="url", value=article['url'], category='External analysis', to_ids=False)
         # Add attributes
