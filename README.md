@@ -12,8 +12,9 @@ A Python tool that extracts Indicators of Compromise (IoCs) from RSS threat inte
 
 ## Requirements
 
-- Python 3.6+
+- Python 3.12+
 - MISP instance (for event creation)
+- MISP API key
 
 ## Installation
 
