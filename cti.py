@@ -5,6 +5,8 @@ ThreatFeed Collector - Functional approach for IoC extraction to MISP using ioce
 
 import os
 import csv
+import ipaddress
+import re
 import sys
 import time
 import logging
@@ -26,9 +28,9 @@ urllib3.disable_warnings()
 # Configuration
 RSS_FEEDS_CSV = os.getenv('RSS_FEEDS_CSV', 'rss_feeds.csv')
 MISP_URL = os.getenv('MISP_URL', 'https://localhost')
-MISP_KEY = os.getenv('MISP_KEY', 'your key')
+MISP_KEY = os.getenv('MISP_KEY', 'your_api_key_here')
 OUTPUT_CSV = os.getenv('OUTPUT_CSV', f'ioc_stats_{datetime.now().strftime("%Y%m%d")}.csv')
-DAYS_BACK = int(os.getenv('DAYS_BACK', '7'))
+DAYS_BACK = int(os.getenv('DAYS_BACK', '1'))
 
 logging.basicConfig(
     level=logging.INFO,
@@ -36,12 +38,24 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Common domains to filter out
 COMMON_DOMAINS = {'google.com', 'microsoft.com', 'apple.com', 'amazon.com', 'github.com', 'stackoverflow.com',
                   'twitter.com', 'facebook.com', 'linkedin.com', 'instagram.com', 'youtube.com', 'pastebin.com',
                   'virustotal.com', 'urlvoid.com', 'hybrid-analysis.com', 'any.run', 'joesandbox.com'}
 
 WARNING_LIST = WarningLists(slow_search=True)
+
+# RFC 3986に基づくURLの正規表現（簡易版）
+URL_REGEX = re.compile(
+    r'^(?:http|https|ftp)://'  # スキーム
+    r'(?:\S+(?::\S*)?@)?'  # ユーザー情報（任意）
+    r'(?:'  # ホスト
+    r'(?P<ip>\d{1,3}(?:\.\d{1,3}){3})|'  # IPv4
+    r'(?P<host>[a-zA-Z0-9\-\.]+)'  # ホスト名
+    r')'
+    r'(?::\d{2,5})?'  # ポート（任意）
+    r'(?:[/?#][^\s]*)?'  # パス・クエリ・フラグメント（任意）
+    r'$'
+)
 
 def is_recent(date_str: str, cutoff_date: datetime) -> bool:
     """Check if article date is within range"""
@@ -74,6 +88,12 @@ def is_public_ip(ip: str) -> bool:
     except:
         return False
 
+def is_ipv4_strict(s: str) -> bool:
+    try:
+        ipaddress.IPv4Address(s)
+        return True
+    except ipaddress.AddressValueError:
+        return False
 
 def is_suspicious_domain(domain: str) -> bool:
     """Check if domain is suspicious (not in common domains list)"""
@@ -98,6 +118,13 @@ def is_suspicious_url(url: str) -> bool:
     return not any(d in url_lower for d in COMMON_DOMAINS)
 
 
+def is_valid_url(url: str) -> bool:
+    """
+    入力されたURLがRFC 3986に準拠しているかを判定します。
+    """
+    return bool(URL_REGEX.match(url))
+
+
 def extract_iocs(text: str) -> Dict[str, Set[str]]:
     """Extract IoCs from text using iocextract library"""
     if not text:
@@ -107,12 +134,13 @@ def extract_iocs(text: str) -> Dict[str, Set[str]]:
 
     try:
         # Extract URLs (refang=True to convert defanged URLs back to normal format)
+        text = text.replace("[","").replace("]", "")
         urls = set(iocextract.extract_urls(text, refang=True))
+        urls = {u for u in urls if is_valid_url(u)}
         iocs['urls'] = {u for u in urls if is_suspicious_url(u)}
 
         # Extract IPv4 addresses
         ips = set(iocextract.extract_ipv4s(text, refang=True))
-        iocs['ips'] = {i for i in ips if is_public_ip(i)}
 
         # Extract domains from URLs and standalone domains
         # First extract domains from URLs we found
@@ -123,11 +151,16 @@ def extract_iocs(text: str) -> Dict[str, Set[str]]:
                 if '://' in url:
                     domain_part = url.split('://')[1].split('/')[0].split(':')[0]
                     domains.add(domain_part)
+                # Simple ip address extraction from URL
+                elif re.match(r'\d{1,3}(\.\d{1,3}){3}', url):
+                    ip_part = re.match(r'\d{1,3}(\.\d{1,3}){3}', url).group(0)
+                    if is_ipv4_strict(ip_part):
+                        ips.add(ip_part)
             except:
                 continue
 
         iocs['fqdns'] = {d for d in domains if is_suspicious_domain(d)}
-
+        iocs['ips'] = {i for i in ips if is_public_ip(i)}
         # Extract hashes
         hashes = set(iocextract.extract_hashes(text))
         # Filter by hash length (MD5=32, SHA1=40, SHA256=64, SHA512=128)
@@ -235,7 +268,6 @@ def create_misp_event(misp: PyMISP, article: Dict, iocs: Dict[str, Set[str]]) ->
             for ioc in ioc_set:
                 if ioc_type == 'urls':
                     attr_type = 'url'
-                    continue
                 elif ioc_type == 'ips':
                     attr_type = 'ip-dst'
                 elif ioc_type == 'fqdns':
@@ -258,9 +290,8 @@ def create_misp_event(misp: PyMISP, article: Dict, iocs: Dict[str, Set[str]]) ->
                     event.add_attribute(type=attr_type, value=ioc, category='Network activity', to_ids=True)
                 except Exception as e:
                     logger.warning(f"Failed to add attribute {ioc} of type {attr_type}: {e}")
-        event = misp.add_event(event, pythonify=True)
-        event_id = event['Event']['id']
-        logger.info(f"Created MISP event with ID: {event_id}")
+        misp.add_event(event, pythonify=True)
+        logger.info(f"Created MISP.")
         return True
 
     except Exception as e:
@@ -333,7 +364,6 @@ if __name__ == "__main__":
 
         for article in articles:
             logger.info(f"Processing article: {article['title'][:100]}...")
-
             # Extract IoCs using iocextract
             url = article['url']
             if url:
