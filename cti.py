@@ -29,9 +29,9 @@ urllib3.disable_warnings()
 # Configuration
 RSS_FEEDS_CSV = os.getenv('RSS_FEEDS_CSV', 'rss_feeds.csv')
 MISP_URL = os.getenv('MISP_URL', 'https://localhost')
-MISP_KEY = os.getenv('MISP_KEY', 'your_misp_key_here')
+MISP_KEY = os.getenv('MISP_KEY', 'your_api_key_here')
 OUTPUT_CSV = os.getenv('OUTPUT_CSV', f'ioc_stats_{datetime.now().strftime("%Y%m%d")}.csv')
-DAYS_BACK = int(os.getenv('DAYS_BACK', '14'))
+DAYS_BACK = int(os.getenv('DAYS_BACK', '7'))
 
 logging.basicConfig(
     level=logging.INFO,
@@ -312,32 +312,30 @@ def create_misp_event(misp: PyMISP, article: Dict, iocs: Dict[str, Set[str]]) ->
         return False
 
 
-def save_stats(stats: defaultdict, events_created: defaultdict) -> None:
+def save_stats(misp: PyMISP) -> None:
     """Save statistics to CSV file"""
     try:
-        vendors = set(list(stats.keys()) + list(events_created.keys()))
+        date_from = datetime.now() - timedelta(days=7)
+        date_from = date_from.strftime('%Y-%m-%d')
+        date_to = datetime.now().strftime('%Y-%m-%d')
+        events = misp.search(date_from=date_from, date_to=date_to, pythonify=True)
+
         with open(OUTPUT_CSV, 'w', newline='', encoding='utf-8') as csvfile:
-            fieldnames = ['vendor', 'urls', 'ips', 'fqdns', 'hashes', 'total_iocs', 'events_created']
+            fieldnames = ['date', 'vendor', 'iocs', 'title', 'blog url']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-
             writer.writeheader()
-            for vendor in vendors:
-                counts = stats[vendor]
-                writer.writerow({
-                    'vendor': vendor,
-                    'urls': counts['urls'],
-                    'ips': counts['ips'],
-                    'fqdns': counts['fqdns'],
-                    'hashes': counts['hashes'],
-                    'total_iocs': sum(counts.values()),
-                    'events_created': events_created[vendor]
-                })
-
+            for e in events:
+                vendor = e.info.split(']')[0].strip('[').split(']')[0] if ']' in e.info else 'Unknown'
+                iocs = len(e.attributes) - 1  # Exclude the URL attribute
+                title = re.sub(r'^\[.*?\]\s*', '', e.info)  # Remove vendor prefix
+                for a in e.attributes:
+                    if a.category == 'External analysis' and a.type == 'url':
+                        blog_url = a.value
+                        writer.writerow({'date': e.date, 'vendor': vendor, 'iocs': iocs, 'title': title, 'blog url': blog_url})
+                        break
         logger.info(f"Stats saved to {OUTPUT_CSV}")
-
-        # Log summary
-        total_iocs = sum(sum(stats[v].values()) for v in stats)
-        total_created = sum(events_created.values())
+        total_iocs = sum(len(e.attributes) - 1 for e in events)
+        total_created = len(events)
         logger.info(f"Total: {total_iocs} IOCs, {total_created} events created")
     except Exception as e:
         logger.error(f"Failed to save stats: {e}")
@@ -355,7 +353,6 @@ if __name__ == "__main__":
         sys.exit(1)
 
     cutoff_date = datetime.now() - timedelta(days=DAYS_BACK)
-    stats = defaultdict(lambda: defaultdict(int))
     events_created = defaultdict(int)
 
     # Process feeds
@@ -394,10 +391,6 @@ if __name__ == "__main__":
                 text = article['content']
             iocs = extract_iocs(text)
 
-            # Update stats
-            for ioc_type, ioc_set in iocs.items():
-                stats[vendor][ioc_type] += len(ioc_set)
-
             total_iocs = sum(len(s) for s in iocs.values())
             logger.info(f"Extracted {total_iocs} IOCs from {vendor}")
 
@@ -412,12 +405,8 @@ if __name__ == "__main__":
 
             # Create MISP event if IOCs found
             if total_iocs > 0:
-                created = create_misp_event(misp, article, iocs)
-                if created:
-                    events_created[vendor] += 1
-
-    # Save results
-    save_stats(stats, events_created)
+                create_misp_event(misp, article, iocs)
+    save_stats(misp)
 
     elapsed = time.time() - start_time
     logger.info(f"Completed in {elapsed:.2f} seconds")
