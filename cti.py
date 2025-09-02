@@ -28,7 +28,7 @@ urllib3.disable_warnings()
 # Configuration
 RSS_FEEDS_CSV = os.getenv('RSS_FEEDS_CSV', 'rss_feeds.csv')
 MISP_URL = os.getenv('MISP_URL', 'https://localhost')
-MISP_KEY = os.getenv('MISP_KEY', 'your_api_key_here')
+MISP_KEY = os.getenv('MISP_KEY', 'your_misp_key_here')
 OUTPUT_CSV = os.getenv('OUTPUT_CSV', f'ioc_stats_{datetime.now().strftime("%Y%m%d")}.csv')
 DAYS_BACK = int(os.getenv('DAYS_BACK', '1'))
 
@@ -44,16 +44,16 @@ COMMON_DOMAINS = {'google.com', 'microsoft.com', 'apple.com', 'amazon.com', 'git
 
 WARNING_LIST = WarningLists(slow_search=True)
 
-# RFC 3986に基づくURLの正規表現（簡易版）
+# RFC 3986
 URL_REGEX = re.compile(
-    r'^(?:http|https|ftp)://'  # スキーム
-    r'(?:\S+(?::\S*)?@)?'  # ユーザー情報（任意）
-    r'(?:'  # ホスト
-    r'(?P<ip>\d{1,3}(?:\.\d{1,3}){3})|'  # IPv4
-    r'(?P<host>[a-zA-Z0-9\-\.]+)'  # ホスト名
+    r'^(?:http|https|ftp)://'
+    r'(?:\S+(?::\S*)?@)?'
+    r'(?:'
+    r'(?P<ip>\d{1,3}(?:\.\d{1,3}){3})|'
+    r'(?P<host>[a-zA-Z0-9\-\.]+)'
     r')'
-    r'(?::\d{2,5})?'  # ポート（任意）
-    r'(?:[/?#][^\s]*)?'  # パス・クエリ・フラグメント（任意）
+    r'(?::\d{2,5})?'
+    r'(?:[/?#][^\s]*)?'
     r'$'
 )
 
@@ -119,9 +119,10 @@ def is_suspicious_url(url: str) -> bool:
 
 
 def is_valid_url(url: str) -> bool:
-    """
-    入力されたURLがRFC 3986に準拠しているかを判定します。
-    """
+    if "redacted" in url.lower():
+        return False
+    if url.count('.') < 1:
+        return False
     return bool(URL_REGEX.match(url))
 
 
