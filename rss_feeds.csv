@@ -2,9 +2,13 @@ Vendor, RSS Feed URL, Blog URL
 Check Point,https://research.checkpoint.com/feed/,https://research.checkpoint.com/
 Cisco Talos,https://blog.talosintelligence.com/rss/,https://blog.talosintelligence.com/
 CrowdStrike,https://www.crowdstrike.com/en-us/blog/feed,https://www.crowdstrike.com/blog/
+Fortinet,https://feeds.fortinet.com/fortinet/blog/threat-research&x=1,https://www.fortinet.com/blog/threat-research
 Google Cloud Threat Intelligence,https://feeds.feedburner.com/threatintelligence/pvexyqv7v0v,https://cloud.google.com/blog/topics/threat-intelligence
 Huntress Labs,https://www.huntress.com/blog/rss.xml,https://www.huntress.com/blog-categories/threat-analysis
 Kaspersky,https://www.kaspersky.com/blog/feed/,https://www.kaspersky.com/blog/
+McAfee,https://www.mcafee.com/blogs/feed/,https://www.mcafee.com/blogs/
 Microsoft Security Blog,https://www.microsoft.com/en-us/security/blog/feed/,https://www.microsoft.com/en-us/security/blog/
 Sekoia,https://blog.sekoia.io/feed/,https://blog.sekoia.io
+SentinelOne,https://www.sentinelone.com/labs/feed/,https://www.sentinelone.com/labs/
+Sophos,https://news.sophos.com/en-us/category/threat-research/feed/,https://news.sophos.com/en-us/category/threat-research
 Unit42(Palo Alto Networks),https://unit42.paloaltonetworks.com/category/threat-research/rss,https://unit42.paloaltonetworks.com/category/threat-research/

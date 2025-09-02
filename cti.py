@@ -150,16 +150,17 @@ def extract_iocs(text: str) -> Dict[str, Set[str]]:
         domains = set()
         for url in urls:
             try:
-                # Simple domain extraction from URL
                 if '://' in url:
-                    domain_part = url.split('://')[1].split('/')[0].split(':')[0]
-                    if is_suspicious_domain(domain_part):
-                        domains.add(domain_part)
-                # Simple ip address extraction from URL
-                elif re.match(r'\d{1,3}(\.\d{1,3}){3}', url):
-                    ip_part = re.match(r'\d{1,3}(\.\d{1,3}){3}', url).group(0)
-                    if is_ipv4_strict(ip_part):
-                        ips.add(ip_part)
+                    # Simple ip address extraction from URL
+                    if re.match(r'\d{1,3}(\.\d{1,3}){3}', url):
+                        ip_part = re.match(r'\d{1,3}(\.\d{1,3}){3}', url).group(0)
+                        if is_ipv4_strict(ip_part):
+                            ips.add(ip_part)
+                    else:
+                        domain_part = url.split('://')[1].split('/')[0].split(':')[0]
+                        if is_suspicious_domain(domain_part):
+                            domains.add(domain_part)
+
             except:
                 continue
 
