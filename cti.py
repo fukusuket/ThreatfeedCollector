@@ -18,6 +18,7 @@ from typing import Dict, List, Set
 
 import feedparser
 from bs4 import BeautifulSoup
+from feedparser import USER_AGENT
 from pymisp import PyMISP, MISPEvent
 from dateutil import parser as date_parser
 import iocextract
@@ -30,7 +31,7 @@ RSS_FEEDS_CSV = os.getenv('RSS_FEEDS_CSV', 'rss_feeds.csv')
 MISP_URL = os.getenv('MISP_URL', 'https://localhost')
 MISP_KEY = os.getenv('MISP_KEY', 'your_misp_key_here')
 OUTPUT_CSV = os.getenv('OUTPUT_CSV', f'ioc_stats_{datetime.now().strftime("%Y%m%d")}.csv')
-DAYS_BACK = int(os.getenv('DAYS_BACK', '1'))
+DAYS_BACK = int(os.getenv('DAYS_BACK', '14'))
 
 logging.basicConfig(
     level=logging.INFO,
@@ -79,7 +80,8 @@ def is_public_ip(ip: str) -> bool:
         if WARNING_LIST.search(ip):
             logger.info(f"Excluding IP from warning list: {ip}")
             return False
-            # Exclude private ranges
+        if not is_ipv4_strict(ip):
+            return False
         return not (octets[0] == 10 or
                     (octets[0] == 172 and 16 <= octets[1] <= 31) or
                     (octets[0] == 192 and octets[1] == 168) or
@@ -151,7 +153,8 @@ def extract_iocs(text: str) -> Dict[str, Set[str]]:
                 # Simple domain extraction from URL
                 if '://' in url:
                     domain_part = url.split('://')[1].split('/')[0].split(':')[0]
-                    domains.add(domain_part)
+                    if is_suspicious_domain(domain_part):
+                        domains.add(domain_part)
                 # Simple ip address extraction from URL
                 elif re.match(r'\d{1,3}(\.\d{1,3}){3}', url):
                     ip_part = re.match(r'\d{1,3}(\.\d{1,3}){3}', url).group(0)
@@ -199,7 +202,7 @@ def process_feed(vendor_name: str, feed_url: str, cutoff_date: datetime) -> List
     """Process RSS feed and extract recent articles"""
     try:
         logger.info(f"Fetching RSS feed: {feed_url}")
-        response = requests.get(feed_url, timeout=10, verify=False)
+        response = requests.get(feed_url, timeout=10, verify=False, headers={'User-Agent': USER_AGENT})
         response.raise_for_status()
         feed = feedparser.parse(response.content)
 
@@ -292,7 +295,7 @@ def create_misp_event(misp: PyMISP, article: Dict, iocs: Dict[str, Set[str]]) ->
                 except Exception as e:
                     logger.warning(f"Failed to add attribute {ioc} of type {attr_type}: {e}")
         misp.add_event(event, pythonify=True)
-        logger.info(f"Created MISP.")
+        logger.info(f"Created MISP Event.")
         return True
 
     except Exception as e:
@@ -368,7 +371,7 @@ if __name__ == "__main__":
             url = article['url']
             if url:
                 try:
-                    response = requests.get(url, timeout=10, verify=False)
+                    response = requests.get(url, timeout=10, verify=False, headers={'User-Agent': USER_AGENT})
                     response.raise_for_status()
                     soup = BeautifulSoup(response.text, 'html.parser')
                     # Remove script and style elements
