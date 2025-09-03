@@ -301,19 +301,19 @@ def create_misp_event(misp: PyMISP, article: Dict, iocs: Dict[str, Set[str]]) ->
 def save_stats(misp: PyMISP) -> None:
     """Save statistics to CSV file"""
     try:
-        date_from = datetime.now() - timedelta(days=7)
+        date_from = datetime.now() - timedelta(days=int(DAYS_BACK))
         date_from = date_from.strftime('%Y-%m-%d')
         date_to = datetime.now().strftime('%Y-%m-%d')
         events = misp.search(date_from=date_from, date_to=date_to, pythonify=True)
 
         with open(OUTPUT_CSV, 'w', newline='', encoding='utf-8') as csvfile:
-            fieldnames = ['date', 'vendor', 'iocs', 'title', 'blog url']
+            fieldnames = ['date', 'vendor', 'title', 'blog url']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             for e in events:
                 vendor = e.info.split(']')[0].strip('[').split(']')[0] if ']' in e.info else 'Unknown'
-                iocs = len(e.attributes) - 1  # Exclude the URL attribute
-                title = re.sub(r'^\[.*?\]\s*', '', e.info)  # Remove vendor prefix
+                iocs = len(e.attributes) - 1
+                title = re.sub(r'^\[.*?\]\s*', '', e.info)
                 for a in e.attributes:
                     if a.category == 'External analysis' and a.type == 'url':
                         blog_url = a.value
