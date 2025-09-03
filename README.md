@@ -49,8 +49,8 @@ export OUTPUT_CSV="ioc_stats_$(date +%Y%m%d).csv"
 Create a `rss_feeds.csv` file with your threat intelligence feeds:
 
 ```csv
-VendorName,https://vendor.com/feed.xml
-AnotherVendor,https://anothervender.com/rss
+Vendor, RSS Feed URL, Blog URL
+Sample vendor,https://example.com/feed/,https://example.com/
 ```
 
 Lines starting with `#` are treated as comments.
