@@ -31,7 +31,7 @@ RSS_FEEDS_CSV = os.getenv('RSS_FEEDS_CSV', 'rss_feeds.csv')
 MISP_URL = os.getenv('MISP_URL', 'https://localhost')
 MISP_KEY = os.getenv('MISP_KEY', 'your_api_key_here')
 OUTPUT_CSV = os.getenv('OUTPUT_CSV', f'ioc_stats_{datetime.now().strftime("%Y%m%d")}.csv')
-DAYS_BACK = int(os.getenv('DAYS_BACK', '7'))
+DAYS_BACK = int(os.getenv('DAYS_BACK', '1'))
 
 logging.basicConfig(
     level=logging.INFO,
@@ -71,29 +71,15 @@ def is_recent(date_str: str, cutoff_date: datetime) -> bool:
         return True
 
 
-def is_public_ip(ip: str) -> bool:
-    """Check if IP is public"""
-    try:
-        octets = [int(x) for x in ip.split('.')]
-        if any(o > 255 for o in octets):
-            return False
-        if WARNING_LIST.search(ip):
-            logger.info(f"Excluding IP from warning list: {ip}")
-            return False
-        if not is_ipv4_strict(ip):
-            return False
-        return not (octets[0] == 10 or
-                    (octets[0] == 172 and 16 <= octets[1] <= 31) or
-                    (octets[0] == 192 and octets[1] == 168) or
-                    octets[0] == 127 or
-                    (octets[0] == 169 and octets[1] == 254))
-    except:
-        return False
-
 def is_ipv4_strict(s: str) -> bool:
     try:
-        ipaddress.IPv4Address(s)
-        return True
+        ip = ipaddress.IPv4Address(s)
+        if ip.is_global:
+            return True
+            # if WARNING_LIST.search(ip):
+            #     logger.info(f"Excluding IP from warning list: {ip}")
+            #     return False
+        return False
     except ipaddress.AddressValueError:
         return False
 
@@ -165,7 +151,7 @@ def extract_iocs(text: str) -> Dict[str, Set[str]]:
                 continue
 
         iocs['fqdns'] = {d for d in domains if is_suspicious_domain(d)}
-        iocs['ips'] = {i for i in ips if is_public_ip(i)}
+        iocs['ips'] = {i for i in ips if is_ipv4_strict(i)}
         # Extract hashes
         hashes = set(iocextract.extract_hashes(text))
         # Filter by hash length (MD5=32, SHA1=40, SHA256=64, SHA512=128)
