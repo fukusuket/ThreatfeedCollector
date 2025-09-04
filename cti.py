@@ -29,9 +29,9 @@ urllib3.disable_warnings()
 # Configuration
 RSS_FEEDS_CSV = os.getenv('RSS_FEEDS_CSV', 'rss_feeds.csv')
 MISP_URL = os.getenv('MISP_URL', 'https://localhost')
-MISP_KEY = os.getenv('MISP_KEY', 'your_api_key_here')
+MISP_KEY = os.getenv('MISP_KEY', 'youre_api_key_here')
 OUTPUT_CSV = os.getenv('OUTPUT_CSV', f'ioc_stats_{datetime.now().strftime("%Y%m%d")}.csv')
-DAYS_BACK = int(os.getenv('DAYS_BACK', '14'))
+DAYS_BACK = int(os.getenv('DAYS_BACK', '1'))
 
 logging.basicConfig(
     level=logging.INFO,
@@ -76,9 +76,11 @@ def is_ipv4_strict(s: str) -> bool:
         ip = ipaddress.IPv4Address(s)
         if ip.is_global:
             return True
-            # if WARNING_LIST.search(ip):
-            #     logger.info(f"Excluding IP from warning list: {ip}")
-            #     return False
+        wl = WARNING_LIST.search(ip)
+        for w in wl:
+            if w in ['aws', 'azure', 'gcp']:
+                return True
+        logger.info(f"Excluding IP from warning list: {ip} {wl})")
         return False
     except ipaddress.AddressValueError:
         return False
@@ -123,8 +125,9 @@ def extract_iocs(text: str) -> Dict[str, Set[str]]:
 
     try:
         # Extract URLs (refang=True to convert defanged URLs back to normal format)
-        text = text.replace("[","").replace("]", "")
         urls = set(iocextract.extract_urls(text, refang=True))
+        domains = {re.sub(":.*", "", u.replace("http:","")) for u in urls if not is_valid_url(u)}
+        domains = {d for d in domains if not is_ipv4_strict(d)}
         urls = {u for u in urls if is_valid_url(u)}
         iocs['urls'] = {u for u in urls if is_suspicious_url(u)}
 
@@ -133,7 +136,6 @@ def extract_iocs(text: str) -> Dict[str, Set[str]]:
 
         # Extract domains from URLs and standalone domains
         # First extract domains from URLs we found
-        domains = set()
         for url in urls:
             try:
                 if '://' in url:

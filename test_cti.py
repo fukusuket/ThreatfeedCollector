@@ -10,6 +10,8 @@ from datetime import datetime, timedelta
 import sys
 import os
 
+import iocextract
+
 # Add the parent directory to the path to import cti
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -168,6 +170,13 @@ class TestExtractIOCs(unittest.TestCase):
         text = "File hash: d41d8cd98f00b204e9800998ecf8427e (MD5)"
         result = cti.extract_iocs(text)
         self.assertIn("d41d8cd98f00b204e9800998ecf8427e", result['hashes'])
+
+    def test_should_extract_domain_from_text(self):
+        """Should extract valid hashes from text"""
+        text = "Domain: example[.]com (domain)"
+        result = iocextract.extract_urls(text, refang=True)
+        for url in result:
+            self.assertEqual("example.com", url.replace("http:", ""))
 
     def test_should_return_empty_sets_for_invalid_input(self):
         """Should return empty sets when input is invalid"""
