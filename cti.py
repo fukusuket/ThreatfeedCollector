@@ -390,7 +390,7 @@ if __name__ == "__main__":
                         logger.info(f"    Sample: {sample_iocs}")
 
             # Create MISP event if IOCs found
-            if total_iocs > 0:
+            if total_iocs > 1:
                 create_misp_event(misp, article, iocs)
     save_stats(misp)
 
