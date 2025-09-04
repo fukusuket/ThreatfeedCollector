@@ -307,7 +307,7 @@ def save_stats(misp: PyMISP) -> None:
         events = misp.search(date_from=date_from, date_to=date_to, pythonify=True)
 
         with open(OUTPUT_CSV, 'w', newline='', encoding='utf-8') as csvfile:
-            fieldnames = ['date', 'vendor', 'title', 'blog url']
+            fieldnames = ['date', 'vendor', 'iocs', 'title', 'blog url']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             for e in events:
