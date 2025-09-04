@@ -76,12 +76,10 @@ def is_ipv4_strict(s: str) -> bool:
         ip = ipaddress.IPv4Address(s)
         if ip.is_global:
             return True
-        wl = WARNING_LIST.search(ip)
-        for w in wl:
-            if w in ['aws', 'azure', 'gcp']:
-                return True
-        logger.info(f"Excluding IP from warning list: {ip} {wl})")
-        return False
+        if WARNING_LIST.search(s):
+            logger.info(f"Excluding IP from warning list: {s})")
+            return False
+        return True
     except ipaddress.AddressValueError:
         return False
 
