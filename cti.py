@@ -260,7 +260,7 @@ def create_misp_event(misp: PyMISP, article: Dict, iocs: Dict[str, Set[str]]) ->
         event = MISPEvent()
         event.info = event_title
         event.date = to_yyyy_mm_dd(article['date'])
-        event.add_tag('workflow:state="draft"')
+        #event.add_tag('workflow:state="draft"')
         event.add_attribute(type="url", value=article['url'], category='External analysis', to_ids=False)
         # Add attributes
         for ioc_type, ioc_set in iocs.items():
