@@ -154,14 +154,14 @@ class TestExtractIOCs(unittest.TestCase):
     @patch.object(cti, 'is_valid_url', return_value=True)
     def test_should_extract_urls_from_text(self, mock_valid_url, mock_suspicious_url):
         """Should extract valid suspicious URLs from text"""
-        text = "Visit https://malicious-site.com for more info"
+        text = "Visit https://malicious-site[.]com for more info"
         result = cti.extract_iocs(text)
         self.assertIn("https://malicious-site.com", result['urls'])
 
     @patch.object(cti, 'is_ipv4_strict', return_value=True)
     def test_should_extract_ip_addresses_from_text(self, mock_ipv4):
         """Should extract valid public IP addresses from text"""
-        text = "Connect to 8.8.8.8 for DNS"
+        text = "Connect to 8.8.8[.]8 for DNS"
         result = cti.extract_iocs(text)
         self.assertIn("8.8.8.8", result['ips'])
 

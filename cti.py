@@ -29,7 +29,7 @@ urllib3.disable_warnings()
 # Configuration
 RSS_FEEDS_CSV = os.getenv('RSS_FEEDS_CSV', 'rss_feeds.csv')
 MISP_URL = os.getenv('MISP_URL', 'https://localhost')
-MISP_KEY = os.getenv('MISP_KEY', 'youre_api_key_here')
+MISP_KEY = os.getenv('MISP_KEY', 'your_api_key_here')
 OUTPUT_CSV = os.getenv('OUTPUT_CSV', f'ioc_stats_{datetime.now().strftime("%Y%m%d")}.csv')
 DAYS_BACK = int(os.getenv('DAYS_BACK', '14'))
 
@@ -86,10 +86,13 @@ def is_ipv4_strict(s: str) -> bool:
 def is_suspicious_domain(domain: str) -> bool:
     """Check if domain is suspicious (not in common domains list)"""
     domain = domain.lower()
+    if len(domain) > 253 or not domain or domain.endswith(".txt") or domain.endswith(".exe") or domain.endswith(".zip"):
+        return False
+    if re.match(r'\d{1,3}(\.\d{1,3}){3}', domain):
+        return False
     if WARNING_LIST.search(domain):
         logger.info(f"Excluding domain from warning list: {domain}")
         return False
-    # Extract base domain for comparison
     domain_parts = domain.split('.')
     if len(domain_parts) >= 2:
         base_domain = '.'.join(domain_parts[-2:])
@@ -100,6 +103,8 @@ def is_suspicious_domain(domain: str) -> bool:
 def is_suspicious_url(url: str) -> bool:
     """Check if URL is suspicious (not containing common domains)"""
     url_lower = url.lower()
+    if not '/' in url and not url.startswith('http'):
+        return False
     if WARNING_LIST.search(url_lower):
         logger.info(f"Excluding url from warning list: {url_lower}")
         return False
@@ -114,6 +119,14 @@ def is_valid_url(url: str) -> bool:
     return bool(URL_REGEX.match(url))
 
 
+def extract_lines_with_defang_markers(text: str) -> str:
+    if not text:
+        return ""
+    return "\n".join(
+        line for line in text.splitlines()
+        if "[.]" in line or "[://]" in line
+    )
+
 def extract_iocs(text: str) -> Dict[str, Set[str]]:
     """Extract IoCs from text using iocextract library"""
     if not text:
@@ -122,10 +135,16 @@ def extract_iocs(text: str) -> Dict[str, Set[str]]:
     iocs = {'urls': set(), 'ips': set(), 'fqdns': set(), 'hashes': set()}
 
     try:
-        # Extract URLs (refang=True to convert defanged URLs back to normal format)
+        hashes = set(iocextract.extract_hashes(text))
+        iocs['hashes'] = {h for h in hashes if len(h) in [32, 40, 64, 128]}
+
+        text = extract_lines_with_defang_markers(text)
+        text = text.replace("hxxp", "http").replace("[://]", "://")
         urls = set(iocextract.extract_urls(text, refang=True))
+
         domains = {re.sub(":.*", "", u.replace("http:","")) for u in urls if not is_valid_url(u)}
         domains = {d for d in domains if not is_ipv4_strict(d)}
+
         urls = {u for u in urls if is_valid_url(u)}
         iocs['urls'] = {u for u in urls if is_suspicious_url(u)}
 
@@ -152,10 +171,6 @@ def extract_iocs(text: str) -> Dict[str, Set[str]]:
 
         iocs['fqdns'] = {d for d in domains if is_suspicious_domain(d)}
         iocs['ips'] = {i for i in ips if is_ipv4_strict(i)}
-        # Extract hashes
-        hashes = set(iocextract.extract_hashes(text))
-        # Filter by hash length (MD5=32, SHA1=40, SHA256=64, SHA512=128)
-        iocs['hashes'] = {h for h in hashes if len(h) in [32, 40, 64, 128]}
 
     except Exception as e:
         logger.warning(f"Error extracting IOCs: {e}")
