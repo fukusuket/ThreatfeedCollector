@@ -83,5 +83,6 @@ The tool will:
 
 ## Acknowledgements
 - [MISP/PyMISP](https://github.com/MISP/PyMISP)
+- [MISP/PyMISPWarningLists](https://github.com/MISP/PyMISPWarningLists.git)
 - [kurtmckee/feedparser](https://github.com/kurtmckee/feedparser)
 - [InQuest/iocextract](https://github.com/InQuest/iocextract)
