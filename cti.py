@@ -74,9 +74,10 @@ def is_recent(date_str: str, cutoff_date: datetime) -> bool:
 def is_ipv4_strict(s: str) -> bool:
     try:
         ip = ipaddress.IPv4Address(s)
-        if ip.is_global:
-            return True
-        if WARNING_LIST.search(s):
+        if not ip.is_global:
+            return False
+        r = WARNING_LIST.search(s)
+        if "List of known IPv4 public DNS resolvers" in str(r) or "List of known Zscaler IP address ranges" in str(r):
             logger.info(f"Excluding IP from warning list: {s})")
             return False
         return True
