@@ -77,7 +77,11 @@ def is_ipv4_strict(s: str) -> bool:
         if not ip.is_global:
             return False
         r = WARNING_LIST.search(s)
-        if "List of known IPv4 public DNS resolvers" in str(r) or "List of known Zscaler IP address ranges" in str(r):
+        if ("List of known IPv4 public DNS resolvers" in str(r)
+                or "List of known Zscaler IP address ranges" in str(r)
+                or "List of known Cloudflare IP ranges" in str(r)
+                or "List of known Akamai IP ranges" in str(r)
+                or "List of known Google IP address ranges" in str(r)):
             logger.info(f"Excluding IP from warning list: {s})")
             return False
         return True
