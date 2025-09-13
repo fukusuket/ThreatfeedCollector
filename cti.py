@@ -10,6 +10,8 @@ import re
 import sys
 import time
 import logging
+from pathlib import Path
+
 import requests
 import urllib3
 from datetime import datetime, timedelta
@@ -26,18 +28,25 @@ from pymispwarninglists import WarningLists
 
 urllib3.disable_warnings()
 
-# Configuration
-RSS_FEEDS_CSV = os.getenv('RSS_FEEDS_CSV', 'rss_feeds.csv')
-MISP_URL = os.getenv('MISP_URL', 'https://localhost')
-MISP_KEY = os.getenv('MISP_KEY', 'your_api_key_here')
-OUTPUT_CSV = os.getenv('OUTPUT_CSV', f'ioc_stats_{datetime.now().strftime("%Y%m%d")}.csv')
-DAYS_BACK = int(os.getenv('DAYS_BACK', '14'))
-
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# Configuration
+RSS_FEEDS_CSV = os.getenv('RSS_FEEDS_CSV', 'rss_feeds.csv')
+MISP_URL = os.getenv('MISP_URL', 'https://localhost')
+misp_key = os.getenv('MISP_KEY', '')
+if not misp_key and Path("/shared/authkey").exists():
+    misp_key = Path("/shared/authkey").read_text().strip()
+else:
+    logger.error("MISP_KEY environment variable must be set")
+    exit(1)
+OUTPUT_CSV = os.getenv('OUTPUT_CSV', f'ioc_stats_{datetime.now().strftime("%Y%m%d")}.csv')
+DAYS_BACK = int(os.getenv('DAYS_BACK', '14'))
+
+
 
 COMMON_DOMAINS = {'google.com', 'microsoft.com', 'apple.com', 'amazon.com', 'github.com', 'stackoverflow.com',
                   'twitter.com', 'facebook.com', 'linkedin.com', 'instagram.com', 'youtube.com', 'pastebin.com',

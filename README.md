@@ -69,6 +69,9 @@ The tool will:
 4. Create MISP events for articles containing IoCs
 5. Generate a statistics CSV report
 
+## Related Projects
+- [THuntLab](https://github.com/fukusuket/THuntLab)
+
 ## Output
 
 - **MISP Events**: Created automatically in your MISP instance
