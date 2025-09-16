@@ -38,8 +38,8 @@ logger = logging.getLogger(__name__)
 RSS_FEEDS_CSV = os.getenv('RSS_FEEDS_CSV', 'rss_feeds.csv')
 MISP_URL = os.getenv('MISP_URL', 'https://localhost')
 MISP_KEY = os.getenv('MISP_KEY', '')
-if not MISP_KEY and Path("/shared/authkey").exists():
-    MISP_KEY = Path("/shared/authkey").read_text().strip()
+if not MISP_KEY and Path("/shared/authkey.txt").exists():
+    MISP_KEY = Path("/shared/authkey.txt").read_text().strip()
 else:
     logger.error("MISP_KEY environment variable must be set")
     exit(1)
