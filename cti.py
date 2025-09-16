@@ -35,7 +35,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Configuration
-RSS_FEEDS_CSV = os.getenv('RSS_FEEDS_CSV', 'rss_feeds.csv')
+RSS_FEEDS_CSV = os.getenv('RSS_FEEDS_CSV', '/shared/rss_feeds.csv')
 MISP_URL = os.getenv('MISP_URL', 'https://localhost')
 MISP_KEY = os.getenv('MISP_KEY', '')
 if not MISP_KEY and Path("/shared/authkey.txt").exists():
