@@ -37,12 +37,14 @@ logger = logging.getLogger(__name__)
 # Configuration
 RSS_FEEDS_CSV = os.getenv('RSS_FEEDS_CSV', '/shared/rss_feeds.csv')
 MISP_URL = os.getenv('MISP_URL', 'https://localhost')
-MISP_KEY = os.getenv('MISP_KEY', '')
-if not MISP_KEY and Path("/shared/authkey.txt").exists():
+MISP_KEY = os.getenv('MISP_KEY', '0wvo6AuUoL3xldYWl7egLmiY671rBjhP3gLPhNUR')
+if Path("/shared/authkey.txt").exists():
     MISP_KEY = Path("/shared/authkey.txt").read_text().strip()
-else:
+elif not MISP_KEY:
     logger.error("MISP_KEY environment variable must be set")
     exit(1)
+if not Path(RSS_FEEDS_CSV).exists():
+    RSS_FEEDS_CSV = 'rss_feeds.csv'
 OUTPUT_CSV = os.getenv('OUTPUT_CSV', f'ioc_stats_{datetime.now().strftime("%Y%m%d")}.csv')
 DAYS_BACK = int(os.getenv('DAYS_BACK', '14'))
 
@@ -130,6 +132,23 @@ def is_valid_url(url: str) -> bool:
         return False
     if url.count('.') < 1:
         return False
+
+    suspicious_extensions = {
+        '.exe', '.bat', '.cmd', '.com', '.scr', '.pif', '.vbs', '.js',
+        '.jar', '.zip', '.rar', '.7z', '.tar', '.gz', '.bz2',
+        '.msi', '.deb', '.rpm', '.dmg', '.pkg', 'pdf', '.doc', '.docx',
+        '.xls', '.xlsx', '.ppt', '.pptx', '.rtf', '.txt', '.xml', '.json',
+        '.php', '.asp', '.aspx', '.jsp', '.cgi', '.pl', '.py', '.rb'
+    }
+
+    try:
+        if '://' in url.lower():
+            domain_part = url.split('://')[1].split('/')[0].split(':')[0]
+            if any(domain_part.endswith(ext) for ext in suspicious_extensions):
+                return False
+    except:
+        pass
+
     return bool(URL_REGEX.match(url))
 
 
