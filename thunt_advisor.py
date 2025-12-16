@@ -17,7 +17,7 @@ def _get_api_key() -> str:
 
 def analyze_threat_article(
     article_text: str,
-    model: str = "gpt-4.1",
+    model: str = "gpt-4",
     prompt_path: str = "prompt.md"
 ) -> str:
     try:
@@ -30,11 +30,14 @@ def analyze_threat_article(
         prompt_template = Path(prompt_path).read_text(encoding="utf-8")
         prompt = prompt_template.replace("{{ARTICLE_BODY}}", article_text)
 
-        response = client.responses.create(
+        response = client.chat.completions.create(
             model=model,
-            input=prompt,
+            messages=[
+                {"role": "system", "content": "You are a threat intelligence analyst."},
+                {"role": "user", "content": prompt}
+            ]
         )
-        return response.output_text
+        return response.choices[0].message.content
     except Exception:
         return ""
     finally:
