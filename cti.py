@@ -338,6 +338,9 @@ def create_misp_event(misp: PyMISP, article: Dict, iocs: Dict[str, Set[str]]) ->
                 except Exception as e:
                     logger.warning(f"Failed to add attribute {ioc} of type {attr_type}: {e}")
         event.add_attribute(type="comment", value=article['content'], category='Other', to_ids=False)
+        # TODO Open AI summary generation
+        ai_summary = f"MarkdownContent"
+        event.add_event_report(name="THuntAI", content=ai_summary, distribution=0)
         misp.add_event(event, pythonify=True)
         logger.info(f"Created MISP Event.")
         return True
