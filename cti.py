@@ -337,6 +337,7 @@ def create_misp_event(misp: PyMISP, article: Dict, iocs: Dict[str, Set[str]]) ->
                     event.add_attribute(type=attr_type, value=ioc, category='Network activity', to_ids=True)
                 except Exception as e:
                     logger.warning(f"Failed to add attribute {ioc} of type {attr_type}: {e}")
+        event.add_attribute(type="comment", value=article['content'], category='Other', to_ids=False)
         misp.add_event(event, pythonify=True)
         logger.info(f"Created MISP Event.")
         return True
@@ -418,6 +419,8 @@ if __name__ == "__main__":
                     for script in soup(["script", "style"]):
                         script.decompose()
                     text = soup.get_text()
+                    text = '\n'.join(line for line in text.splitlines() if line.strip())
+                    article['content'] = text
                 except Exception as e:
                     logger.warning(f"Failed to fetch article content from {url}: {e}")
                     continue
