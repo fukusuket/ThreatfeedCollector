@@ -20,17 +20,26 @@ def analyze_threat_article(
     model: str = "gpt-4.1",
     prompt_path: str = "prompt.md"
 ) -> str:
-    resolved_api_key = _get_api_key()
-    http_client = httpx.Client(verify=False)
-    client = OpenAI(
-        api_key=resolved_api_key,
-        http_client=http_client
-    )
-    prompt_template = Path(prompt_path).read_text(encoding="utf-8")
-    prompt = prompt_template.replace("{{ARTICLE_BODY}}", article_text)
+    try:
+        resolved_api_key = _get_api_key()
+        http_client = httpx.Client(verify=False)
+        client = OpenAI(
+            api_key=resolved_api_key,
+            http_client=http_client
+        )
+        prompt_template = Path(prompt_path).read_text(encoding="utf-8")
+        prompt = prompt_template.replace("{{ARTICLE_BODY}}", article_text)
 
-    response = client.responses.create(
-        model=model,
-        input=prompt,
-    )
-    return response.output_text
+        response = client.responses.create(
+            model=model,
+            input=prompt,
+        )
+        return response.output_text
+    except Exception:
+        return ""
+    finally:
+        if "http_client" in locals():
+            try:
+                http_client.close()
+            except Exception:
+                pass
