@@ -4,7 +4,7 @@ import httpx
 import os
 
 
-def _get_api_key(explicit_api_key: str | None = None) -> str:
+def _get_api_key() -> str:
     env_key = os.getenv("OPENAI_API_KEY")
     if env_key:
         return env_key
@@ -17,11 +17,10 @@ def _get_api_key(explicit_api_key: str | None = None) -> str:
 
 def analyze_threat_article(
     article_text: str,
-    api_key: str | None = None,
     model: str = "gpt-4.1",
     prompt_path: str = "prompt.md"
 ) -> str:
-    resolved_api_key = _get_api_key(api_key)
+    resolved_api_key = _get_api_key()
     http_client = httpx.Client(verify=False)
     client = OpenAI(
         api_key=resolved_api_key,
