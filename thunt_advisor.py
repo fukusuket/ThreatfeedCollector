@@ -17,8 +17,8 @@ def _get_api_key() -> str:
 
 def analyze_threat_article(
     article_text: str,
-    model: str = "gpt-4.1",
-    prompt_path: str = "prompt.md"
+    model: str = "gpt-5.2",
+    prompt_path: str = "/shared/threatfeed-collector/prompt.md"
 ) -> str:
     try:
         resolved_api_key = _get_api_key()
