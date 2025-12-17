@@ -17,7 +17,7 @@ def _get_api_key() -> str:
 
 def analyze_threat_article(
     article_text: str,
-    model: str = "gpt-4",
+    model: str = "gpt-4.1",
     prompt_path: str = "prompt.md"
 ) -> str:
     try:
