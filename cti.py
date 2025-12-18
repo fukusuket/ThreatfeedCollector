@@ -50,6 +50,10 @@ if Path("/shared/authkey.txt").exists():
 elif not MISP_KEY:
     logger.error("MISP_KEY environment variable must be set")
     exit(1)
+
+if Path("/shared/threatfeed-collector/rss_feeds.csv"):
+    RSS_FEEDS_CSV = "/shared/threatfeed-collector/rss_feeds.csv"
+
 OUTPUT_CSV = os.getenv('OUTPUT_CSV', f'ioc_stats_{datetime.now().strftime("%Y%m%d")}.csv')
 DAYS_BACK = int(os.getenv('DAYS_BACK'))
 
