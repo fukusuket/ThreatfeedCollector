@@ -2,6 +2,10 @@ from pathlib import Path
 from openai import OpenAI
 import httpx
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env if present
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 
 def _get_api_key() -> str:

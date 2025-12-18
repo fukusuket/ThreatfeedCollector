@@ -6,3 +6,4 @@ beautifulsoup4==4.13.5
 iocextract==1.16.1
 pymispwarninglists
 openai
+python-dotenv

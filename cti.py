@@ -12,6 +12,8 @@ import time
 import logging
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 import requests
 import urllib3
 from datetime import datetime, timedelta
@@ -36,19 +38,22 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Load environment variables from .env if present
+load_dotenv(Path(__file__).resolve().parent / ".env")
+
 # Configuration
-RSS_FEEDS_CSV = os.getenv('RSS_FEEDS_CSV', '/shared/rss_feeds.csv')
-MISP_URL = os.getenv('MISP_URL', 'https://localhost')
-MISP_KEY = os.getenv('MISP_KEY', '')
+RSS_FEEDS_CSV = os.getenv('RSS_FEEDS_CSV')
+MISP_URL = os.getenv('MISP_URL')
+MISP_KEY = os.getenv('MISP_KEY')
 if Path("/shared/authkey.txt").exists():
     MISP_KEY = Path("/shared/authkey.txt").read_text().strip()
 elif not MISP_KEY:
     logger.error("MISP_KEY environment variable must be set")
     exit(1)
-if not Path(RSS_FEEDS_CSV).exists():
+if Path('rss_feeds.csv').exists():
     RSS_FEEDS_CSV = 'rss_feeds.csv'
 OUTPUT_CSV = os.getenv('OUTPUT_CSV', f'ioc_stats_{datetime.now().strftime("%Y%m%d")}.csv')
-DAYS_BACK = int(os.getenv('DAYS_BACK', '14'))
+DAYS_BACK = int(os.getenv('DAYS_BACK'))
 
 
 
