@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
 # Configuration
-RSS_FEEDS_CSV = os.getenv('RSS_FEEDS_CSV')
+RSS_FEEDS_CSV = 'rss_feeds.csv'
 MISP_URL = os.getenv('MISP_URL')
 MISP_KEY = os.getenv('MISP_KEY')
 if Path("/shared/authkey.txt").exists():
@@ -50,8 +50,6 @@ if Path("/shared/authkey.txt").exists():
 elif not MISP_KEY:
     logger.error("MISP_KEY environment variable must be set")
     exit(1)
-if Path('rss_feeds.csv').exists():
-    RSS_FEEDS_CSV = 'rss_feeds.csv'
 OUTPUT_CSV = os.getenv('OUTPUT_CSV', f'ioc_stats_{datetime.now().strftime("%Y%m%d")}.csv')
 DAYS_BACK = int(os.getenv('DAYS_BACK'))
 
