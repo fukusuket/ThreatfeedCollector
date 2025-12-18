@@ -33,7 +33,7 @@ def analyze_threat_article(
         response = client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "system", "content": "You are a threat intelligence analyst."},
+                {"role": "system", "content": "You are a sinior threat intelligence analyst."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.2,
