@@ -317,7 +317,6 @@ def create_misp_event(misp: PyMISP, article: Dict, iocs: Dict[str, Set[str]]) ->
         event = MISPEvent()
         event.info = event_title
         event.date = to_yyyy_mm_dd(article['date'])
-        #event.add_tag('workflow:state="draft"')
         event.add_attribute(type="url", value=article['url'], category='External analysis', to_ids=False)
         # Add attributes
         for ioc_type, ioc_set in iocs.items():
@@ -347,9 +346,12 @@ def create_misp_event(misp: PyMISP, article: Dict, iocs: Dict[str, Set[str]]) ->
                 except Exception as e:
                     logger.warning(f"Failed to add attribute {ioc} of type {attr_type}: {e}")
         event.add_attribute(type="comment", value=article['content'], category='Other', to_ids=False)
-        # TODO Open AI summary generation
-        ai_summary = analyze_threat_article(article_text=article['content'])
-        event.add_event_report(name="THuntAI", content=ai_summary, distribution=0)
+        ai_summary = analyze_threat_article(article_text=article['content'], model="gpt-5.2")
+        event.add_event_report(name="[en]_[gpt-5.2]_" + event_title, content=ai_summary, distribution=0)
+        ai_summary = analyze_threat_article(article_text=article['content'], model="gpt-5.2", additional_pre_context="Please provide the final output as a Japanese translation.")
+        event.add_event_report(name="[jp]_[gpt-5.2]_" + event_title, content=ai_summary, distribution=0)
+        ai_summary = analyze_threat_article(article_text=article['content'], model="gpt-4o")
+        event.add_event_report(name="[en]_[gpt-4o]_" + event_title, content=ai_summary, distribution=0)
         misp.add_event(event, pythonify=True)
         logger.info(f"Created MISP Event.")
         return True

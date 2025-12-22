@@ -22,7 +22,8 @@ def _get_api_key() -> str:
 def analyze_threat_article(
     article_text: str,
     model: str = "gpt-5.2",
-    prompt_path: str = "/shared/threatfeed-collector/prompt.md"
+    prompt_path: str = "/shared/threatfeed-collector/prompt.md",
+    additional_pre_context: str = "",
 ) -> str:
     try:
         resolved_api_key = _get_api_key()
@@ -32,15 +33,15 @@ def analyze_threat_article(
             http_client=http_client
         )
         prompt_template = Path(prompt_path).read_text(encoding="utf-8")
+        prompt_template = prompt_template.replace("{{ADDITIONAL_PRE_CONTEXT}}", additional_pre_context)
         prompt = prompt_template.replace("{{ARTICLE_BODY}}", article_text)
 
         response = client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "system", "content": "You are a sinior threat intelligence analyst."},
+                {"role": "system", "content": "You are a senior threat intelligence analyst."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.2,
         )
         return response.choices[0].message.content
     except Exception:
