@@ -65,10 +65,10 @@ Write three short sentences. Cover:
 - Write advice as **behavior-based hunting angles** that SOC analysts can translate into SIEM/EDR/Cloud log queries.
 - If applicable and clearly mappable, append ATT&CK IDs in parentheses at the end of the sentence.
 
-### IoCs (if applicable)
+### IoCs
 If you want to enforce output for `### IoCs (if applicable)` in a table format, use the following instruction example (replace the body of this section with it):
 
-IoCs must **always be output as a Markdown table**. Fix the columns to these three: **Type / Value / Context**.
+IoCs must **always be output as a Markdown table**. Fix the columns to these three: **Type / Value / Context**.If you output an IoCs table, sort the rows by the `Type` column in ascending order (A–Z).
 - Type: `IP` / `Domain` / `URL` / `Hash` / `File name` / `File path` / `Registry` / `Browser extension`, etc.
 - Value: IoC values **explicitly stated** in the article (only valid formats).
 - Context: In one line, describe the **purpose/behavior** in which the IoC was observed in the article (e.g., what it was used for).
