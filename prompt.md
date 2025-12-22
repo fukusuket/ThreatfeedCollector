@@ -66,7 +66,9 @@ Write three short sentences. Cover:
 - If applicable and clearly mappable, append ATT&CK IDs in parentheses at the end of the sentence.
 
 ### IoCs (if applicable)
-Only list IoCs (IPs/domains/hashes/filename/filepath/registry/browser extension, etc\.) explicitly stated in the article, and add a one\-line note describing the observed behavior or usage they relate to; if the article provides no IoCs, write `Not stated in the article` only\.
+Only list IoCs (IPs/domains/hashes/filename/filepath/registry/browser extension, etc\.) explicitly stated in the article, and add a one\-line note describing the observed behavior or usage they relate to; if the article provides no IoCs, write `Not stated in the article` only.
+Only output IoCs that conform to the correct data format (e.g., valid IPs/domains/hashes/filename/filepath/registry/browser extension formats); do not output malformed or non-conforming values.
+
 
 ---
 
