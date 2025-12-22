@@ -1,4 +1,5 @@
 {{ADDITIONAL_PRE_CONTEXT}}
+
 # Threat Hunting Summary Prompt
 
 This prompt is intended for Blue Team (defender) use in SOC threat hunting and detection engineering.
@@ -14,7 +15,7 @@ Analyze the **full text of the provided threat research blog article** and produ
 - Focus on **Indicators of Attack (IoA)**: attacker behaviors, traces, techniques, and **observable host/network artifacts**.
 - Minimize simple lists of easily changeable IoCs (IPs, domains, hashes).
   - Only include IoCs **if explicitly stated in the article** and **only when essential to support a behavior**.
-
+- Across the entire output, highlight distinctive technical nouns/entities using Markdown inline code ticks (e.g., `CVE-2025-xxx`, `cmd.exe`, `C:\Windows\System32\`, `HKCU\...`, `example.com`).
 ---
 
 ## Anti-hallucination rules (strict)
@@ -43,7 +44,6 @@ Write three short sentences. Cover:
 - attacker profile / campaign context (only if stated)
 - impact / risk to defenders (if stated)
 
-
 ### Attack Timeline
 - First publication date: (state date if present; otherwise "Unknown (not stated in the article)")
 - First observed activity date: (state date if present; otherwise "Unknown (not stated in the article)")
@@ -55,18 +55,15 @@ Write three short sentences. Cover:
 
 ### Threat Hunting Advice
 Write three short sentences. Cover:
-- Each sentence must contain an action verb, for example:
-  - Search … 
-  - Detect …
-  - Block …
-  - Review …
+- Each sentence must contain an action verb(search/detect/block/review).
 - Do **not** write full detection queries or rule code.
+- Avoid using the word "correlate"; instead, use clearer phrasing to describe the relationship.
 - Write advice as **behavior-based hunting angles** that SOC analysts can translate into SIEM/EDR/Cloud log queries.
 - If applicable and clearly mappable, append ATT&CK IDs in parentheses at the end of the sentence.
 
 ### IoCs
 IoCs must **always be output as a Markdown table**. Fix the columns to these three: **Type / Value / Context**.If you output an IoCs table, sort the rows by the `Type` column in ascending order (A–Z).
-- Type: `IP` / `Domain` / `URL` / `Hash` / `File name` / `File path` / `Registry` / `Browser extension`, etc.
+- Type: `IP` / `Domain` / `URL` / `Hash` / `File path` / `Command line` / `Registry` / `Browser extension` / `Email subject`, etc.
 - Value: IoC values **explicitly stated** in the article (only valid formats).
 - Context: In one line, describe the **purpose/behavior** in which the IoC was observed in the article (e.g., what it was used for).
 
