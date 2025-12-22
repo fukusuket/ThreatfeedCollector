@@ -16,6 +16,7 @@ Analyze the **full text of the provided threat research blog article** and produ
 - Minimize simple lists of easily changeable IoCs (IPs, domains, hashes).
   - Only include IoCs **if explicitly stated in the article** and **only when essential to support a behavior**.
 - Across the entire output, highlight distinctive technical nouns/entities using Markdown inline code ticks (e.g., `CVE-2025-xxx`, `cmd.exe`, `C:\Windows\System32\`, `HKCU\...`, `example.com`).
+- Do NOT include any meta\-phrases such as: "This article says\.\.\.", "The article states\.\.\.", "The post reports\.\.\.", "According to the article\.\.\.", "This report\.\.\."
 ---
 
 ## Anti-hallucination rules (strict)
