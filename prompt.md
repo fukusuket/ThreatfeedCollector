@@ -36,9 +36,11 @@ Analyze the **full text of the provided threat research blog article** and produ
 ## Output format (must match exactly)
 
 ### Article Summary
-- Bullet 1 (one short sentence): vulnerability / initial access vector (if stated)
-- Bullet 2 (one short sentence): attacker profile / campaign context (only if stated)
-- Bullet 3 (one short sentence): impact / risk to defenders (if stated)
+Write three short sentences. Cover:
+- vulnerability / initial access vector (if stated)
+- attacker profile / campaign context (only if stated)
+- impact / risk to defenders (if stated)
+
 
 ### Attack Timeline
 - First publication date: (state date if present; otherwise "Unknown (not stated in the article)")
@@ -51,16 +53,16 @@ Analyze the **full text of the provided threat research blog article** and produ
 - If targets are not specified, write **"Not stated in the article"**.
 
 ### Threat Hunting Advice
-- Provide **3–5 bullets**, each **one short sentence**.
-- Each bullet must start with an action verb, for example:
+Write three to five short sentences. Cover:
+- Each sentence must start with an action verb, for example:
   - Hunt for …
+  - Search for …
   - Detect …
-  - Review …
-  - Correlate …
   - Block …
+  - Review …
 - Do **not** write full detection queries or rule code.
 - Write advice as **behavior-based hunting angles** that SOC analysts can translate into SIEM/EDR/Cloud log queries.
-- If applicable and clearly mappable, append ATT&CK IDs in parentheses at the end of the bullet.
+- If applicable and clearly mappable, append ATT&CK IDs in parentheses at the end of the sentence.
 
 ---
 
