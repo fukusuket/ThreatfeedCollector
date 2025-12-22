@@ -66,8 +66,20 @@ Write three short sentences. Cover:
 - If applicable and clearly mappable, append ATT&CK IDs in parentheses at the end of the sentence.
 
 ### IoCs (if applicable)
-Only list IoCs (IPs/domains/hashes/filename/filepath/registry/browser extension, etc\.) explicitly stated in the article, and add a one\-line note describing the observed behavior or usage they relate to; if the article provides no IoCs, write `Not stated in the article` only.
-Only output IoCs that conform to the correct data format (e.g., valid IPs/domains/hashes/filename/filepath/registry/browser extension formats); do not output malformed or non-conforming values.
+If you want to enforce output for `### IoCs (if applicable)` in a table format, use the following instruction example (replace the body of this section with it):
+
+IoCs must **always be output as a Markdown table**. Fix the columns to these three: **Type / Value / Context**.
+- Type: `IP` / `Domain` / `URL` / `Hash` / `File name` / `File path` / `Registry` / `Browser extension`, etc.
+- Value: IoC values **explicitly stated** in the article (only valid formats).
+- Context: In one line, describe the **purpose/behavior** in which the IoC was observed in the article (e.g., what it was used for).
+
+If **no IoCs are mentioned at all** in the article, do not output a table and output only the single line: **`Not stated in the article`**.
+Even if IoCs are mentioned, do **not** guess, generate, or fill in missing values (do not output values not present in the article).
+Do not output invalid or improperly formatted values.
+
+| Type | Value | Context |
+|---|---|---|
+| (example) Domain | example\.com | Mentioned by the article as a C2 communication destination |
 
 
 ---
