@@ -7,3 +7,4 @@ iocextract==1.16.1
 pymispwarninglists
 openai
 python-dotenv
+google-genai
