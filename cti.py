@@ -296,6 +296,11 @@ def to_yyyy_mm_dd(date_str: str) -> str:
     except Exception:
         return datetime.utcnow().strftime("%Y-%m-%d")
 
+def trim_markdown_fence(text: str) -> str:
+    m = re.match(r"^\s*```(?:\w+)?\s*\n?(.*?)\n?\s*```\s*$", text, re.DOTALL)
+    return m.group(1).strip() if m else text.strip()
+
+
 def create_misp_event(misp: PyMISP, article: Dict, iocs: Dict[str, Set[str]]) -> bool:
     """Create MISP event with extracted IOCs"""
     try:
@@ -347,12 +352,12 @@ def create_misp_event(misp: PyMISP, article: Dict, iocs: Dict[str, Set[str]]) ->
                     logger.warning(f"Failed to add attribute {ioc} of type {attr_type}: {e}")
         # TODO PoC for AI analysis summary
         event.add_attribute(type="comment", value=article['content'], category='Other', to_ids=False)
-        ai_summary = analyze_threat_article(article_text=article['content'], model="gpt-5.2")
-        event.add_event_report(name="[en]_[gpt-5.2]_" + event_title, content=ai_summary, distribution=0)
-        ai_summary = analyze_threat_article(article_text=article['content'], model="gpt-5.2", additional_pre_context="Please provide the final output as a Japanese translation.")
-        event.add_event_report(name="[jp]_[gpt-5.2]_" + event_title, content=ai_summary, distribution=0)
-        ai_summary = analyze_threat_article(article_text=article['content'], model="gpt-4o")
-        event.add_event_report(name="[en]_[gpt-4o]_" + event_title, content=ai_summary, distribution=0)
+        ai_summary = analyze_threat_article(article_text=article['content'], model="gpt-5.2", article_url=article['url'])
+        event.add_event_report(name="[en]_[gpt-5.2]_" + event_title, content=trim_markdown_fence(ai_summary), distribution=0)
+        ai_summary = analyze_threat_article(article_text=article['content'], model="gpt-5.2", article_url=article['url'], additional_pre_context="Please provide the final output as a Japanese translation.")
+        event.add_event_report(name="[jp]_[gpt-5.2]_" + event_title, content=trim_markdown_fence(ai_summary), distribution=0)
+        ai_summary = analyze_threat_article(article_text=article['content'], model="gpt-4o", article_url=article['url'])
+        event.add_event_report(name="[en]_[gpt-4o]_" + event_title, content=trim_markdown_fence(ai_summary), distribution=0)
         misp.add_event(event, pythonify=True)
         logger.info(f"Created MISP Event.")
         return True
