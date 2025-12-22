@@ -68,7 +68,6 @@ Write three short sentences. Cover:
   - Link format: \`[Source]({{ARTICLE_URL}}#:~:text=<IoC>)\`
   - Put the exact IoC string you wrote in the sentence into \`<IoC>\` (do not shorten, normalize, or alter it).
   - If multiple IoCs appear in a single sentence, add a \`[Source]\` link for **each** IoC.
-  - If \`{{ARTICLE_URL}}\` is unknown or not provided, do not add a link and write: \`Not stated in the article\`.
 
 ### IoCs
 IoCs must **always be output as a Markdown table**. Fix the columns to these three: **Type / Value / Context**.If you output an IoCs table, sort the rows by the `Type` column in ascending order (A–Z).
@@ -90,4 +89,3 @@ Do not output invalid or improperly formatted values.
 ## Input
 The following text is the threat research blog article to analyze:
 {{ARTICLE_BODY}}
-{{ARTICLE_URL}}
