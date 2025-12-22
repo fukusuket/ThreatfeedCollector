@@ -21,6 +21,7 @@ def _get_api_key() -> str:
 
 def analyze_threat_article(
     article_text: str,
+    article_url: str = "",
     model: str = "gpt-5.2",
     prompt_path: str = "/shared/threatfeed-collector/prompt.md",
     additional_pre_context: str = "",
