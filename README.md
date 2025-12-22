@@ -34,15 +34,22 @@ pip install -r requirements.txt
 
 ## Configuration
 
-Set the following environment variables:
+Create a local `.env` from the sample and fill in your credentials/URLs:
 
 ```bash
-export MISP_URL="https://your-misp-instance.com"
-export MISP_KEY="your_misp_api_key"
-export RSS_FEEDS_CSV="rss_feeds.csv"
-export DAYS_BACK="1"
-export OUTPUT_CSV="ioc_stats_$(date +%Y%m%d).csv"
+cp .env.example .env
 ```
+
+Then edit `.env` to set:
+
+```dotenv
+OPENAI_API_KEY=your-openai-key
+MISP_URL=https://your-misp-instance.com
+MISP_KEY=your_misp_api_key
+DAYS_BACK=1
+```
+
+These values are read by the app at runtime; no shell exports are required.
 
 ## RSS Feeds Configuration
 
