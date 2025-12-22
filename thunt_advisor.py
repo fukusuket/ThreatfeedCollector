@@ -42,6 +42,7 @@ def analyze_threat_article(
                 {"role": "system", "content": "You are a senior threat intelligence analyst."},
                 {"role": "user", "content": prompt}
             ],
+            temperature=0.2,
         )
         return response.choices[0].message.content
     except Exception:
