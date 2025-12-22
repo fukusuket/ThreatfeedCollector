@@ -36,8 +36,7 @@ Analyze the **full text of the provided threat research blog article** and produ
 
 ## Output format (must match exactly)
 
-### {{ARTICLE_TITLE}}
-- URL: {{ARTICLE_URL}}
+### [{{ARTICLE_TITLE}}]({{ARTICLE_URL}})
 
 ### Summary
 Write three short sentences. Cover:
@@ -66,6 +65,9 @@ Write three short sentences. Cover:
 - Do **not** write full detection queries or rule code.
 - Write advice as **behavior-based hunting angles** that SOC analysts can translate into SIEM/EDR/Cloud log queries.
 - If applicable and clearly mappable, append ATT&CK IDs in parentheses at the end of the sentence.
+
+### IoCs (if applicable)
+Only list IoCs (IPs/domains/hashes/filename/filepath/registry/browser extension, etc\.) explicitly stated in the article, and add a one\-line note describing the observed behavior or usage they relate to; if the article provides no IoCs, write `Not stated in the article` only\.
 
 ---
 
