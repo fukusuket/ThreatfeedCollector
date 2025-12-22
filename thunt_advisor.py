@@ -23,8 +23,6 @@ def analyze_threat_article(
     article_text: str,
     model: str = "gpt-5.2",
     prompt_path: str = "/shared/threatfeed-collector/prompt.md",
-    article_title: str = "",
-    article_url: str = "",
     additional_pre_context: str = "",
 ) -> str:
     try:
@@ -35,7 +33,6 @@ def analyze_threat_article(
             http_client=http_client
         )
         prompt_template = Path(prompt_path).read_text(encoding="utf-8")
-        prompt_template = prompt_template.replace("{{ARTICLE_URL}}", article_url)
         prompt_template = prompt_template.replace("{{ADDITIONAL_PRE_CONTEXT}}", additional_pre_context)
         prompt = prompt_template.replace("{{ARTICLE_BODY}}", article_text)
 

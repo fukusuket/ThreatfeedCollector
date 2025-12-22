@@ -37,8 +37,6 @@ Analyze the **full text of the provided threat research blog article** and produ
 
 ## Output format (must match exactly)
 
-### [{{ARTICLE_TITLE}}]({{ARTICLE_URL}})
-
 ### Summary
 Write three short sentences. Cover:
 - vulnerability / initial access vector (if stated)
