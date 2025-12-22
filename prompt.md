@@ -64,10 +64,6 @@ Write three short sentences. Cover:
 - Do **not** write full detection queries or rule code.
 - Write advice as **behavior-based hunting angles** that SOC analysts can translate into SIEM/EDR/Cloud log queries.
 - If applicable and clearly mappable, append ATT&CK IDs in parentheses at the end of the sentence.
-- If you include any IoC\-equivalent concrete value in \`Threat Hunting Advice\` (e.g., IP / Domain / URL / Hash / File name / File path / Registry, etc.), append a **source verification link** immediately after each IoC in square brackets.
-  - Link format: \`[Source]({{ARTICLE_URL}}#:~:text=<IoC>)\`
-  - Put the exact IoC string you wrote in the sentence into \`<IoC>\` (do not shorten, normalize, or alter it).
-  - If multiple IoCs appear in a single sentence, add a \`[Source]\` link for **each** IoC.
 
 ### IoCs
 IoCs must **always be output as a Markdown table**. Fix the columns to these three: **Type / Value / Context**.If you output an IoCs table, sort the rows by the `Type` column in ascending order (A–Z).
