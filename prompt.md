@@ -47,7 +47,6 @@ Write three short sentences. Cover:
 ### Attack Timeline
 - First publication date: (state date if present; otherwise "Unknown (not stated in the article)")
 - First observed activity date: (state date if present; otherwise "Unknown (not stated in the article)")
-- Status: Ongoing / Ended / Unknown (choose only based on the article)
 
 ### Targeted Systems
 - Describe the **type of systems and roles** targeted (e.g., internet-facing apps, identity infrastructure, endpoints, cloud workloads).
