@@ -35,6 +35,7 @@ Analyze the **full text of the provided threat research blog article** and produ
 ---
 
 ## Output format (must match exactly)
+Please provide the final output in raw Markdown format.
 
 ### Article Summary
 Write three short sentences. Cover:

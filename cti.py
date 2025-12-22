@@ -345,6 +345,7 @@ def create_misp_event(misp: PyMISP, article: Dict, iocs: Dict[str, Set[str]]) ->
                     event.add_attribute(type=attr_type, value=ioc, category='Network activity', to_ids=True)
                 except Exception as e:
                     logger.warning(f"Failed to add attribute {ioc} of type {attr_type}: {e}")
+        # TODO PoC for AI analysis summary
         event.add_attribute(type="comment", value=article['content'], category='Other', to_ids=False)
         ai_summary = analyze_threat_article(article_text=article['content'], model="gpt-5.2")
         event.add_event_report(name="[en]_[gpt-5.2]_" + event_title, content=ai_summary, distribution=0)
