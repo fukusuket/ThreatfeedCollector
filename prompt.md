@@ -36,30 +36,30 @@ Analyze the **full text of the provided threat research blog article** and produ
 
 ## Output format (must match exactly)
 
-### Article Summary
+### {{ARTICLE_TITLE}}
+- URL: {{ARTICLE_URL}}
+
+### Summary
 Write three short sentences. Cover:
 - vulnerability / initial access vector (if stated)
 - attacker profile / campaign context (only if stated)
 - impact / risk to defenders (if stated)
 
-And source information:
-- Source URL: {{ARTICLE_URL}}
 
 ### Attack Timeline
 - First publication date: (state date if present; otherwise "Unknown (not stated in the article)")
 - First observed activity date: (state date if present; otherwise "Unknown (not stated in the article)")
 - Status: Ongoing / Ended / Unknown (choose only based on the article)
 
-### Targeted (Victim) Systems
+### Targeted Systems
 - Describe the **type of systems and roles** targeted (e.g., internet-facing apps, identity infrastructure, endpoints, cloud workloads).
 - Include relevant environment details if stated (framework/middleware/OS/cloud service), but **avoid product-name dumping**.
 - If targets are not specified, write **"Not stated in the article"**.
 
 ### Threat Hunting Advice
-Write three to five short sentences. Cover:
-- Each sentence must start with an action verb, for example:
-  - Hunt for …
-  - Search for …
+Write three short sentences. Cover:
+- Each sentence must contain an action verb, for example:
+  - Search … 
   - Detect …
   - Block …
   - Review …

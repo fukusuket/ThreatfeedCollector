@@ -23,6 +23,7 @@ def analyze_threat_article(
     article_text: str,
     model: str = "gpt-5.2",
     prompt_path: str = "/shared/threatfeed-collector/prompt.md",
+    article_title: str = "",
     article_url: str = "",
     additional_pre_context: str = "",
 ) -> str:
