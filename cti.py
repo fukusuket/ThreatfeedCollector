@@ -354,7 +354,7 @@ def create_misp_event(misp: PyMISP, article: Dict, iocs: Dict[str, Set[str]]) ->
         event.add_attribute(type="comment", value=article['content'], category='Other', to_ids=False)
         ai_summary = analyze_threat_article(article_text=article['content'], article_url=article['url'], model="gpt-5.2")
         event.add_event_report(name="[en]_[gpt-5.2]_" + event_title, content=trim_markdown_fence(ai_summary), distribution=0)
-        ai_summary = analyze_threat_article(article_text=article['content'], article_url=article['url'], model="gpt-5.2", additional_pre_context="Translate the response into Japanese. Avoid polite speech (desu/masu form) and honorifics; use a plain, neutral tone.")
+        ai_summary = analyze_threat_article(article_text=article['content'], article_url=article['url'], model="gpt-5.2", additional_pre_context="Translate the response into Japanese(include Markdown title). Avoid polite speech (desu/masu form) and honorifics; use a plain, neutral tone.")
         event.add_event_report(name="[jp]_[gpt-5.2]_" + event_title, content=trim_markdown_fence(ai_summary), distribution=0)
         ai_summary = analyze_threat_article(article_text=article['content'], article_url=article['url'], model="gpt-4.1")
         event.add_event_report(name="[en]_[gpt-4.1]_" + event_title, content=trim_markdown_fence(ai_summary), distribution=0)
