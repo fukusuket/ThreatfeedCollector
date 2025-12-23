@@ -443,7 +443,8 @@ if __name__ == "__main__":
                     # Remove script and style elements
                     for script in soup(["script", "style"]):
                         script.decompose()
-                    article['content'] = soup.get_text()
+                    text = soup.get_text()
+                    article['content'] = text
                 except Exception as e:
                     logger.warning(f"Failed to fetch article content from {url}: {e}")
                     continue
