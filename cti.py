@@ -408,10 +408,14 @@ def fetch_full_content(url: str, crawl_links: bool = False, max_links: int = 5) 
             if not href:
                 continue
             full_url = urljoin(url, href)
-            if not full_url.startswith(('http://', 'https://')):
+            full_url_lower = full_url.lower()
+            if not full_url_lower.startswith(('http://', 'https://')):
+                continue
+            if any(dom in full_url_lower for dom in COMMON_DOMAINS):
                 continue
             if full_url in seen or urlparse(full_url).netloc in seen:
                 continue
+
             seen.add(full_url)
             seen.add(urlparse(full_url).netloc)
             if len(linked_texts) >= max_links:
