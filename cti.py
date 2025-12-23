@@ -375,7 +375,7 @@ def load_feeds(csv_path: str) -> List[tuple]:
         with open(csv_path, 'r') as f:
             reader = csv.reader(f)
             next(reader, None)
-            return [(row[0], row[1], row(3)) for row in reader if row and len(row) >= 2 and not row[0].startswith('#')]
+            return [(row[0], row[1], row[3]) for row in reader if row and len(row) >= 2 and not row[0].startswith('#')]
     except FileNotFoundError:
         logger.error(f"RSS feeds file not found: {csv_path}")
         raise
