@@ -40,10 +40,11 @@ Analyze the **full text of the provided threat research blog article** and produ
 ## Output format (must match exactly)
 
 ### Summary
-Write three short sentences. Cover:
+Write four short sentences. Cover:
 - vulnerability / initial access vector (if stated)
-- attacker profile / campaign context (only if stated)
+- attacker profile / campaign context (if stated)
 - impact / risk to defenders (if stated)
+- malware/tools/ttps used (if stated)
 
 ### Attack Timeline
 - First publication date: (state date if present; otherwise "Unknown (not stated in the article)")
@@ -55,8 +56,8 @@ Write three short sentences. Cover:
 - If targets are not specified, write **"Not stated in the article"**.
 
 ### Threat Hunting Advice
-Write three short sentences. Cover:
-- Each sentence must contain an action verb(search/detect/block/review).
+Write **3 bullet points** using `-`. Each bullet must be **one short sentence** and must:
+- Each sentence must contain a defender's action verb(search/detect/block/review/monitor).
 - Do **not** write full detection queries or rule code.
 - Avoid using the word "correlate"; instead, use clearer phrasing to describe the relationship.
 - Write advice as **behavior-based hunting angles** that SOC analysts can translate into SIEM/EDR/Cloud log queries.
