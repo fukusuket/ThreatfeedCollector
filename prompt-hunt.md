@@ -82,4 +82,4 @@ Do not output invalid or improperly formatted values.
 
 ## Input
 The following text is the threat research blog article to analyze:
-{{ARTICLE_BODY}}
+{{CONTENT}}
