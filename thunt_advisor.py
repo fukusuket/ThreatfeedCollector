@@ -56,7 +56,7 @@ def analyze_threat_article(
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     system_instruction="You are a senior threat intelligence analyst.",
-                    temperature=0.1,
+                    temperature=0,
                 )
             )
             return response.text
@@ -78,7 +78,7 @@ def analyze_threat_article(
                 {"role": "system", "content": "You are a senior threat intelligence analyst."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.1,
+            temperature=0,
         )
         return response.choices[0].message.content
     except Exception:
