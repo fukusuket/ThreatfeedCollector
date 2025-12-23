@@ -18,6 +18,7 @@ import requests
 import urllib3
 from datetime import datetime, timedelta
 from typing import Dict, List, Set
+from urllib.parse import urljoin, urlparse
 
 import feedparser
 from bs4 import BeautifulSoup
@@ -26,7 +27,6 @@ from pymisp import PyMISP, MISPEvent
 from dateutil import parser
 import iocextract
 from pymispwarninglists import WarningLists
-from urllib.parse import urljoin
 
 from thunt_advisor import analyze_threat_article
 
@@ -386,6 +386,7 @@ def fetch_full_content(url: str, crawl_links: bool = False, max_links: int = 5) 
     if not url:
         return ""
     try:
+        logger.info(f"Fetching article content from: {url}")
         response = requests.get(url, timeout=10, verify=False, headers={'User-Agent': USER_AGENT})
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
@@ -397,6 +398,10 @@ def fetch_full_content(url: str, crawl_links: bool = False, max_links: int = 5) 
             return base_text
 
         seen = set()
+        base_host = urlparse(url).netloc
+        if base_host:
+            seen.add(base_host)
+        seen.add(url)
         linked_texts = []
         for a in soup.find_all('a', href=True):
             href = a.get('href', '').strip()
@@ -405,12 +410,14 @@ def fetch_full_content(url: str, crawl_links: bool = False, max_links: int = 5) 
             full_url = urljoin(url, href)
             if not full_url.startswith(('http://', 'https://')):
                 continue
-            if full_url in seen:
+            if full_url in seen or urlparse(full_url).netloc in seen:
                 continue
             seen.add(full_url)
+            seen.add(urlparse(full_url).netloc)
             if len(linked_texts) >= max_links:
                 break
             try:
+                logger.info(f"Crawling linked content: {full_url}")
                 r = requests.get(full_url, timeout=10, verify=False, headers={'User-Agent': USER_AGENT})
                 r.raise_for_status()
                 child_soup = BeautifulSoup(r.text, 'html.parser')
