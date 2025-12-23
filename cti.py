@@ -17,7 +17,6 @@ from dotenv import load_dotenv
 import requests
 import urllib3
 from datetime import datetime, timedelta
-from collections import defaultdict
 from typing import Dict, List, Set
 
 import feedparser
@@ -350,10 +349,9 @@ def create_misp_event(misp: PyMISP, article: Dict, iocs: Dict[str, Set[str]]) ->
                     event.add_attribute(type=attr_type, value=ioc, category='Network activity', to_ids=True)
                 except Exception as e:
                     logger.warning(f"Failed to add attribute {ioc} of type {attr_type}: {e}")
-        # TODO PoC for AI analysis summary
         event.add_attribute(type="comment", value=article['content'], category='Other', to_ids=False)
 
-        # OpenAI analysis
+        # TODO PoC for AI analysis summary
         ai_summary = analyze_threat_article(content=article['content'])
         event.add_event_report(name="[en]_[gpt-5.2]_" + event_title, content=trim_markdown_fence(ai_summary), distribution=0)
 
@@ -370,6 +368,64 @@ def create_misp_event(misp: PyMISP, article: Dict, iocs: Dict[str, Set[str]]) ->
     except Exception as e:
         logger.error(f"Failed to create MISP event: {e}")
         return False
+
+
+def load_feeds(csv_path: str) -> List[tuple]:
+    """Load RSS feed definitions from CSV."""
+    try:
+        with open(csv_path, 'r') as f:
+            reader = csv.reader(f)
+            next(reader, None)
+            return [(row[0], row[1]) for row in reader if row and len(row) >= 2 and not row[0].startswith('#')]
+    except FileNotFoundError:
+        logger.error(f"RSS feeds file not found: {csv_path}")
+        raise
+
+
+def fetch_full_content(url: str) -> str:
+    """Fetch full article content with basic sanitization."""
+    if not url:
+        return ""
+    try:
+        response = requests.get(url, timeout=10, verify=False, headers={'User-Agent': USER_AGENT})
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        for script in soup(["script", "style"]):
+            script.decompose()
+        return soup.get_text()
+    except Exception as e:
+        logger.warning(f"Failed to fetch article content from {url}: {e}")
+        return ""
+
+
+def process_article(misp: PyMISP, article: Dict, vendor: str) -> bool:
+    logger.info(f"Processing article: {article['title'][:100]}...")
+    url = article.get('url', '')
+    text = article.get('content', '')
+    fetched_text = fetch_full_content(url) if url else ""
+    article['content'] = fetched_text or text
+
+    iocs = extract_iocs(article['content'])
+    total_iocs = sum(len(s) for s in iocs.values())
+    logger.info(f"Extracted {total_iocs} IOCs from {vendor}")
+
+    for ioc_type, ioc_set in iocs.items():
+        if ioc_set:
+            logger.info(f"  {ioc_type}: {len(ioc_set)} items")
+            sample_iocs = list(ioc_set)[:3]
+            if sample_iocs:
+                logger.info(f"    Sample: {sample_iocs}")
+
+    if total_iocs > 1:
+        return create_misp_event(misp, article, iocs)
+    return False
+
+
+def process_vendor_feed(misp: PyMISP, vendor: str, feed_url: str, cutoff_date: datetime) -> None:
+    logger.info(f"Processing vendor: {vendor}")
+    articles = process_feed(vendor, feed_url, cutoff_date)
+    for article in articles:
+        process_article(misp, article, vendor)
 
 
 def save_stats(misp: PyMISP) -> None:
@@ -401,7 +457,7 @@ def save_stats(misp: PyMISP) -> None:
         logger.error(f"Failed to save stats: {e}")
 
 
-if __name__ == "__main__":
+def main() -> None:
     start_time = time.time()
     logger.info("Starting ThreatFeed Collector with iocextract")
 
@@ -413,61 +469,21 @@ if __name__ == "__main__":
         sys.exit(1)
 
     cutoff_date = datetime.now() - timedelta(days=DAYS_BACK)
-    events_created = defaultdict(int)
 
-    # Process feeds
     try:
-        with open(RSS_FEEDS_CSV, 'r') as f:
-            reader = csv.reader(f)
-            # Skip header row
-            next(reader, None)
-            feeds = [(row[0], row[1]) for row in reader if row and len(row) >= 2 and not row[0].startswith('#')]
+        feeds = load_feeds(RSS_FEEDS_CSV)
     except FileNotFoundError:
-        logger.error(f"RSS feeds file not found: {RSS_FEEDS_CSV}")
         sys.exit(1)
 
     logger.info(f"Processing {len(feeds)} RSS feeds")
-
     for vendor, feed_url in feeds:
-        logger.info(f"Processing vendor: {vendor}")
-        articles = process_feed(vendor, feed_url, cutoff_date)
+        process_vendor_feed(misp, vendor, feed_url, cutoff_date)
 
-        for article in articles:
-            logger.info(f"Processing article: {article['title'][:100]}...")
-            url = article['url']
-            if url:
-                try:
-                    response = requests.get(url, timeout=10, verify=False, headers={'User-Agent': USER_AGENT})
-                    response.raise_for_status()
-                    soup = BeautifulSoup(response.text, 'html.parser')
-                    # Remove script and style elements
-                    for script in soup(["script", "style"]):
-                        script.decompose()
-                    text = soup.get_text()
-                    article['content'] = text
-                except Exception as e:
-                    logger.warning(f"Failed to fetch article content from {url}: {e}")
-                    continue
-            else:
-                text = article['content']
-            iocs = extract_iocs(text)
-
-            total_iocs = sum(len(s) for s in iocs.values())
-            logger.info(f"Extracted {total_iocs} IOCs from {vendor}")
-
-            # Log details of extracted IOCs
-            for ioc_type, ioc_set in iocs.items():
-                if ioc_set:
-                    logger.info(f"  {ioc_type}: {len(ioc_set)} items")
-                    # Log first few items for debugging
-                    sample_iocs = list(ioc_set)[:3]
-                    if sample_iocs:
-                        logger.info(f"    Sample: {sample_iocs}")
-
-            # Create MISP event if IOCs found
-            if total_iocs > 1:
-                create_misp_event(misp, article, iocs)
     save_stats(misp)
-
     elapsed = time.time() - start_time
     logger.info(f"Completed in {elapsed:.2f} seconds")
+
+
+if __name__ == "__main__":
+    main()
+
