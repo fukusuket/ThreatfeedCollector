@@ -1,16 +1,17 @@
-Vendor, RSS Feed URL, Blog URL
-Arctic Wolf,https://arcticwolf.com/feed/,https://arcticwolf.com/
-Check Point,https://research.checkpoint.com/feed/,https://research.checkpoint.com/
-Cisco Talos,https://blog.talosintelligence.com/rss/,https://blog.talosintelligence.com/
-CrowdStrike,https://www.crowdstrike.com/en-us/blog/feed,https://www.crowdstrike.com/blog/
-Fortinet,https://feeds.fortinet.com/fortinet/blog/threat-research&x=1,https://www.fortinet.com/blog/threat-research
-Google Cloud Threat Intelligence,https://feeds.feedburner.com/threatintelligence/pvexyqv7v0v,https://cloud.google.com/blog/topics/threat-intelligence
-Huntress Labs,https://www.huntress.com/blog/rss.xml,https://www.huntress.com/blog-categories/threat-analysis
-Kaspersky,https://www.kaspersky.com/blog/feed/,https://www.kaspersky.com/blog/
-Microsoft Security Blog,https://www.microsoft.com/en-us/security/blog/feed/,https://www.microsoft.com/en-us/security/blog/
-Sekoia,https://blog.sekoia.io/feed/,https://blog.sekoia.io
-SentinelOne,https://www.sentinelone.com/labs/feed/,https://www.sentinelone.com/labs/
-Sophos,https://news.sophos.com/en-us/category/threat-research/feed/,https://news.sophos.com/en-us/category/threat-research
-Trustwave,https://www.trustwave.com/en-us/resources/blogs/spiderlabs-blog/rss.xml,https://www.trustwave.com/en-us/resources/blogs/spiderlabs-blog/
-Unit42(Palo Alto Networks),https://unit42.paloaltonetworks.com/category/threat-research/rss,https://unit42.paloaltonetworks.com/category/threat-research/
-ProofPoint,https://www.proofpoint.com/us/threat-insight-blog.xml,https://www.proofpoint.com/us/blog/threat-insight
+Vendor, RSS Feed URL, Blog URL, Crawl links
+Arctic Wolf,https://arcticwolf.com/feed/,https://arcticwolf.com/,False
+Check Point,https://research.checkpoint.com/feed/,https://research.checkpoint.com/,False
+Cisco Talos,https://blog.talosintelligence.com/rss/,https://blog.talosintelligence.com/,False
+CrowdStrike,https://www.crowdstrike.com/en-us/blog/feed,https://www.crowdstrike.com/blog/,False
+Fortinet,https://feeds.fortinet.com/fortinet/blog/threat-research&x=1,https://www.fortinet.com/blog/threat-research,False
+Google Cloud Threat Intelligence,https://feeds.feedburner.com/threatintelligence/pvexyqv7v0v,https://cloud.google.com/blog/topics/threat-intelligence,False
+Huntress Labs,https://www.huntress.com/blog/rss.xml,https://www.huntress.com/blog-categories/threat-analysis,False
+Kaspersky,https://www.kaspersky.com/blog/feed/,https://www.kaspersky.com/blog/,False
+Microsoft Security Blog,https://www.microsoft.com/en-us/security/blog/feed/,https://www.microsoft.com/en-us/security/blog/,False
+Sekoia,https://blog.sekoia.io/feed/,https://blog.sekoia.io,False
+SentinelOne,https://www.sentinelone.com/labs/feed/,https://www.sentinelone.com/labs/,False
+Sophos,https://news.sophos.com/en-us/category/threat-research/feed/,https://news.sophos.com/en-us/category/threat-research,False
+Trustwave,https://www.trustwave.com/en-us/resources/blogs/spiderlabs-blog/rss.xml,https://www.trustwave.com/en-us/resources/blogs/spiderlabs-blog/,False
+Unit42(Palo Alto Networks),https://unit42.paloaltonetworks.com/category/threat-research/rss,https://unit42.paloaltonetworks.com/category/threat-research/,False
+ProofPoint,https://www.proofpoint.com/us/threat-insight-blog.xml,https://www.proofpoint.com/us/blog/threat-insight,False
+BleepingComputer,https://www.bleepingcomputer.com/feed/security/,https://www.bleepingcomputer.com/news/security/,True

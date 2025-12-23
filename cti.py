@@ -26,6 +26,7 @@ from pymisp import PyMISP, MISPEvent
 from dateutil import parser
 import iocextract
 from pymispwarninglists import WarningLists
+from urllib.parse import urljoin
 
 from thunt_advisor import analyze_threat_article
 
@@ -55,8 +56,6 @@ if Path("/shared/threatfeed-collector/rss_feeds.csv"):
 
 OUTPUT_CSV = os.getenv('OUTPUT_CSV', f'ioc_stats_{datetime.now().strftime("%Y%m%d")}.csv')
 DAYS_BACK = int(os.getenv('DAYS_BACK'))
-
-
 
 COMMON_DOMAINS = {'google.com', 'microsoft.com', 'apple.com', 'amazon.com', 'github.com', 'stackoverflow.com',
                   'twitter.com', 'facebook.com', 'linkedin.com', 'instagram.com', 'youtube.com', 'pastebin.com',
@@ -241,7 +240,7 @@ def extract_content(entry) -> str:
         return ""
 
 
-def process_feed(vendor_name: str, feed_url: str, cutoff_date: datetime) -> List[Dict]:
+def process_feed(vendor_name: str, feed_url: str, cutoff_date: datetime, crawl_links: bool = False) -> List[Dict]:
     """Process RSS feed and extract recent articles"""
     try:
         logger.info(f"Fetching RSS feed: {feed_url}")
@@ -352,14 +351,14 @@ def create_misp_event(misp: PyMISP, article: Dict, iocs: Dict[str, Set[str]]) ->
         event.add_attribute(type="comment", value=article['content'], category='Other', to_ids=False)
 
         # TODO PoC for AI analysis summary
-        ai_summary = analyze_threat_article(content=article['content'])
-        event.add_event_report(name="[en]_[gpt-5.2]_" + event_title, content=trim_markdown_fence(ai_summary), distribution=0)
-
-        ai_summary_jp = analyze_threat_article(content=ai_summary, prompt_path="/shared/threatfeed-collector/prompt-translate.md")
-        event.add_event_report(name="[en_jp]_[gpt-5.2]_" + event_title, content=trim_markdown_fence(ai_summary_jp), distribution=0)
-
-        ai_summary = analyze_threat_article(content=article['content'], additional_pre_context="Translate the response into Japanese. Avoid polite speech (desu/masu form) and honorifics; use a plain, neutral tone.")
-        event.add_event_report(name="[jp]_[gpt-5.2]_" + event_title, content=trim_markdown_fence(ai_summary), distribution=0)
+        # ai_summary = analyze_threat_article(content=article['content'])
+        # event.add_event_report(name="[en]_[gpt-5.2]_" + event_title, content=trim_markdown_fence(ai_summary), distribution=0)
+        #
+        # ai_summary_jp = analyze_threat_article(content=ai_summary, prompt_path="/shared/threatfeed-collector/prompt-translate.md")
+        # event.add_event_report(name="[en_jp]_[gpt-5.2]_" + event_title, content=trim_markdown_fence(ai_summary_jp), distribution=0)
+        #
+        # ai_summary = analyze_threat_article(content=article['content'], additional_pre_context="Translate the response into Japanese. Avoid polite speech (desu/masu form) and honorifics; use a plain, neutral tone.")
+        # event.add_event_report(name="[jp]_[gpt-5.2]_" + event_title, content=trim_markdown_fence(ai_summary), distribution=0)
 
         misp.add_event(event, pythonify=True)
         logger.info(f"Created MISP Event.")
@@ -376,13 +375,13 @@ def load_feeds(csv_path: str) -> List[tuple]:
         with open(csv_path, 'r') as f:
             reader = csv.reader(f)
             next(reader, None)
-            return [(row[0], row[1]) for row in reader if row and len(row) >= 2 and not row[0].startswith('#')]
+            return [(row[0], row[1], row(3)) for row in reader if row and len(row) >= 2 and not row[0].startswith('#')]
     except FileNotFoundError:
         logger.error(f"RSS feeds file not found: {csv_path}")
         raise
 
 
-def fetch_full_content(url: str) -> str:
+def fetch_full_content(url: str, crawl_links: bool = False, max_links: int = 5) -> str:
     """Fetch full article content with basic sanitization."""
     if not url:
         return ""
@@ -392,17 +391,50 @@ def fetch_full_content(url: str) -> str:
         soup = BeautifulSoup(response.text, 'html.parser')
         for script in soup(["script", "style"]):
             script.decompose()
-        return soup.get_text()
+        base_text = soup.get_text()
+
+        if not crawl_links:
+            return base_text
+
+        seen = set()
+        linked_texts = []
+        for a in soup.find_all('a', href=True):
+            href = a.get('href', '').strip()
+            if not href:
+                continue
+            full_url = urljoin(url, href)
+            if not full_url.startswith(('http://', 'https://')):
+                continue
+            if full_url in seen:
+                continue
+            seen.add(full_url)
+            if len(linked_texts) >= max_links:
+                break
+            try:
+                r = requests.get(full_url, timeout=10, verify=False, headers={'User-Agent': USER_AGENT})
+                r.raise_for_status()
+                child_soup = BeautifulSoup(r.text, 'html.parser')
+                for script in child_soup(["script", "style"]):
+                    script.decompose()
+                linked_texts.append(child_soup.get_text())
+            except Exception as e:
+                logger.debug(f"Failed to crawl linked content {full_url}: {e}")
+                continue
+
+        if linked_texts:
+            return base_text + "\n\n" + "\n\n".join(linked_texts)
+        return base_text
+
     except Exception as e:
         logger.warning(f"Failed to fetch article content from {url}: {e}")
         return ""
 
 
-def process_article(misp: PyMISP, article: Dict, vendor: str) -> bool:
+def process_article(misp: PyMISP, article: Dict, vendor: str, crawl_links: bool = False) -> bool:
     logger.info(f"Processing article: {article['title'][:100]}...")
     url = article.get('url', '')
     text = article.get('content', '')
-    fetched_text = fetch_full_content(url) if url else ""
+    fetched_text = fetch_full_content(url, crawl_links=crawl_links) if url else ""
     article['content'] = fetched_text or text
 
     iocs = extract_iocs(article['content'])
@@ -421,11 +453,11 @@ def process_article(misp: PyMISP, article: Dict, vendor: str) -> bool:
     return False
 
 
-def process_vendor_feed(misp: PyMISP, vendor: str, feed_url: str, cutoff_date: datetime) -> None:
+def process_vendor_feed(misp: PyMISP, vendor: str, feed_url: str, cutoff_date: datetime, crawl_links: bool = False) -> None:
     logger.info(f"Processing vendor: {vendor}")
-    articles = process_feed(vendor, feed_url, cutoff_date)
+    articles = process_feed(vendor, feed_url, cutoff_date, crawl_links)
     for article in articles:
-        process_article(misp, article, vendor)
+        process_article(misp, article, vendor, crawl_links)
 
 
 def save_stats(misp: PyMISP) -> None:
@@ -476,8 +508,9 @@ def main() -> None:
         sys.exit(1)
 
     logger.info(f"Processing {len(feeds)} RSS feeds")
-    for vendor, feed_url in feeds:
-        process_vendor_feed(misp, vendor, feed_url, cutoff_date)
+    for vendor, feed_url, crawl_links in feeds:
+        crawl_links = True if str(crawl_links).lower() == "true" else False
+        process_vendor_feed(misp, vendor, feed_url, cutoff_date, crawl_links)
 
     save_stats(misp)
     elapsed = time.time() - start_time
