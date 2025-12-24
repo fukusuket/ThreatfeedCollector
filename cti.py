@@ -360,14 +360,11 @@ def create_misp_event(misp: PyMISP, article: Dict, iocs: Dict[str, Set[str]]) ->
         event.add_attribute(type="comment", value=article['content'], category='Other', to_ids=False)
 
         # TODO PoC for AI analysis summary
-        # ai_summary = analyze_threat_article(content=article['content'])
-        # event.add_event_report(name="[en]_[gpt-5.2]_" + event_title, content=trim_markdown_fence(ai_summary), distribution=0)
-        #
-        # ai_summary_jp = analyze_threat_article(content=ai_summary, prompt_path="/shared/threatfeed-collector/prompt-translate.md")
-        # event.add_event_report(name="[en_jp]_[gpt-5.2]_" + event_title, content=trim_markdown_fence(ai_summary_jp), distribution=0)
-        #
-        # ai_summary = analyze_threat_article(content=article['content'], additional_pre_context="Translate the response into Japanese. Avoid polite speech (desu/masu form) and honorifics; use a plain, neutral tone.")
-        # event.add_event_report(name="[jp]_[gpt-5.2]_" + event_title, content=trim_markdown_fence(ai_summary), distribution=0)
+        ai_summary = analyze_threat_article(content=article['content'], title=article['title'])
+        event.add_event_report(name="[en]_[gpt-5.2]_" + event_title, content=trim_markdown_fence(ai_summary), distribution=0)
+
+        ai_summary_jp = analyze_threat_article(content=ai_summary, prompt_path="/shared/threatfeed-collector/prompt-translate.md")
+        event.add_event_report(name="[en_jp]_[gpt-5.2]_" + event_title, content=trim_markdown_fence(ai_summary_jp), distribution=0)
 
         misp.add_event(event, pythonify=True)
         logger.info(f"Created MISP Event.")
