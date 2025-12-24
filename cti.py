@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 import requests
 import urllib3
 from datetime import datetime, timedelta
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Tuple
 from urllib.parse import urljoin, urlparse
 
 import feedparser
@@ -57,7 +57,7 @@ if Path("/shared/threatfeed-collector/rss_feeds.csv"):
 OUTPUT_CSV = os.getenv('OUTPUT_CSV', f'ioc_stats_{datetime.now().strftime("%Y%m%d")}.csv')
 DAYS_BACK = int(os.getenv('DAYS_BACK'))
 
-COMMON_DOMAINS = {'google.com', 'microsoft.com', 'apple.com', 'amazon.com', 'github.com', 'stackoverflow.com',
+COMMON_DOMAINS = {'google.com', 'microsoft.com', 'apple.com', 'amazon.com', 'github.com', 'stackoverflow.com', 'nist.gov',
                   'twitter.com', 'facebook.com', 'linkedin.com', 'instagram.com', 'youtube.com', 'pastebin.com', 'infosec.exchange',
                   'virustotal.com', 'urlvoid.com', 'hybrid-analysis.com', 'any.run', 'joesandbox.com', 'bleepingcomputer.com'}
 
@@ -381,28 +381,28 @@ def load_feeds(csv_path: str) -> List[tuple]:
         raise
 
 
-def fetch_full_content(url: str, crawl_links: bool = False, max_links: int = 5) -> str:
+def fetch_full_content(url: str, crawl_links: bool = False, max_links: int = 10) -> List[Tuple[str, str]]:
     """Fetch full article content with basic sanitization."""
     if not url:
         return ""
     try:
         logger.info(f"Fetching article content from: {url}")
+        result = []
         response = requests.get(url, timeout=10, verify=False, headers={'User-Agent': USER_AGENT})
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
         for script in soup(["script", "style"]):
             script.decompose()
         base_text = soup.get_text()
-
+        result.append((url, base_text))
         if not crawl_links:
-            return base_text
+            return result
 
         seen = set()
         base_host = urlparse(url).netloc
         if base_host:
             seen.add(base_host)
         seen.add(url)
-        linked_texts = []
         for a in soup.find_all('a', href=True):
             href = a.get('href', '').strip()
             if not href:
@@ -418,7 +418,7 @@ def fetch_full_content(url: str, crawl_links: bool = False, max_links: int = 5) 
 
             seen.add(full_url)
             seen.add(urlparse(full_url).netloc)
-            if len(linked_texts) >= max_links:
+            if len(result) >= max_links:
                 break
             try:
                 logger.info(f"Crawling linked content: {full_url}")
@@ -427,14 +427,11 @@ def fetch_full_content(url: str, crawl_links: bool = False, max_links: int = 5) 
                 child_soup = BeautifulSoup(r.text, 'html.parser')
                 for script in child_soup(["script", "style"]):
                     script.decompose()
-                linked_texts.append(child_soup.get_text())
+                result.append((full_url, child_soup.get_text()))
             except Exception as e:
                 logger.debug(f"Failed to crawl linked content {full_url}: {e}")
                 continue
-
-        if linked_texts:
-            return base_text + "\n\n" + "\n\n".join(linked_texts)
-        return base_text
+        return result
 
     except Exception as e:
         logger.warning(f"Failed to fetch article content from {url}: {e}")
@@ -445,22 +442,24 @@ def process_article(misp: PyMISP, article: Dict, vendor: str, crawl_links: bool 
     logger.info(f"Processing article: {article['title'][:100]}...")
     url = article.get('url', '')
     text = article.get('content', '')
-    fetched_text = fetch_full_content(url, crawl_links=crawl_links) if url else ""
-    article['content'] = fetched_text or text
+    fetch_res = fetch_full_content(url, crawl_links=crawl_links) if url else ""
+    for fetched_url, fetched_text in fetch_res:
+        article['url'] = fetched_url
+        article['content'] = fetched_text or text
 
-    iocs = extract_iocs(article['content'])
-    total_iocs = sum(len(s) for s in iocs.values())
-    logger.info(f"Extracted {total_iocs} IOCs from {vendor}")
+        iocs = extract_iocs(article['content'])
+        total_iocs = sum(len(s) for s in iocs.values())
+        logger.info(f"Extracted {total_iocs} IOCs from {vendor}")
 
-    for ioc_type, ioc_set in iocs.items():
-        if ioc_set:
-            logger.info(f"  {ioc_type}: {len(ioc_set)} items")
-            sample_iocs = list(ioc_set)[:3]
-            if sample_iocs:
-                logger.info(f"    Sample: {sample_iocs}")
+        for ioc_type, ioc_set in iocs.items():
+            if ioc_set:
+                logger.info(f"  {ioc_type}: {len(ioc_set)} items")
+                sample_iocs = list(ioc_set)[:3]
+                if sample_iocs:
+                    logger.info(f"    Sample: {sample_iocs}")
 
-    if total_iocs > 1:
-        return create_misp_event(misp, article, iocs)
+        if total_iocs > 1:
+            return create_misp_event(misp, article, iocs)
     return False
 
 
