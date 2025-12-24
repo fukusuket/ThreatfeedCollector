@@ -15,7 +15,7 @@ Analyze the **full text of the provided threat research blog article** and produ
 - Focus on **Indicators of Attack (IoA)**: attacker behaviors, traces, techniques, and **observable host/network artifacts**.
 - Minimize simple lists of easily changeable IoCs (IPs, domains, hashes).
   - Only include IoCs **if explicitly stated in the article** and **only when essential to support a behavior**.
-- Across the entire output, highlight distinctive technical nouns/entities using Markdown inline code ticks (e.g., `CVE-2025-xxx`, `cmd.exe`, `C:\Windows\System32\`, `HKCU\...`, `example.com`).
+- Across the entire output, highlight distinctive technical nouns/entities using Markdown inline code ticks (e.g., `CVE-2025-xxx`, `cmd.exe`, `C:\Windows\System32\`, `HKCU\...`, `example.com`, `APT29`, `mimikatz`).
 - Do NOT include any meta\-phrases such as: "This article says\.\.\.", "The article states\.\.\.", "The post reports\.\.\.", "According to the article\.\.\.", "This report\.\.\."
 ---
 
@@ -40,7 +40,7 @@ Analyze the **full text of the provided threat research blog article** and produ
 
 ## Output format (must match exactly)
 
-### Article Title
+### Title
 {{ARTICLE_TITLE}}
 
 ### Summary
