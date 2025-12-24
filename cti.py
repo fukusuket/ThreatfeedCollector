@@ -76,6 +76,8 @@ URL_REGEX = re.compile(
     r'$'
 )
 
+EXT_ID_PATTERN = re.compile(r'[a-p]{32}')
+
 def is_recent(date_str: str, cutoff_date: datetime) -> bool:
     """Check if article date is within range"""
     if not date_str:
@@ -170,9 +172,9 @@ def extract_lines_with_defang_markers(text: str) -> str:
 def extract_iocs(text: str) -> Dict[str, Set[str]]:
     """Extract IoCs from text using iocextract library"""
     if not text:
-        return {'urls': set(), 'ips': set(), 'fqdns': set(), 'hashes': set()}
+        return {'urls': set(), 'ips': set(), 'fqdns': set(), 'hashes': set(), 'browser_extensions': set()}
 
-    iocs = {'urls': set(), 'ips': set(), 'fqdns': set(), 'hashes': set()}
+    iocs = {'urls': set(), 'ips': set(), 'fqdns': set(), 'hashes': set(),'browser_extensions': set()}
 
     try:
         hashes = set(iocextract.extract_hashes(text))
@@ -190,6 +192,8 @@ def extract_iocs(text: str) -> Dict[str, Set[str]]:
 
         # Extract IPv4 addresses
         ips = set(iocextract.extract_ipv4s(text, refang=True))
+
+        browser_extensions = set(EXT_ID_PATTERN.findall(text or ""))
 
         # Extract domains from URLs and standalone domains
         # First extract domains from URLs we found
@@ -211,6 +215,7 @@ def extract_iocs(text: str) -> Dict[str, Set[str]]:
 
         iocs['fqdns'] = {d for d in domains if is_suspicious_domain(d)}
         iocs['ips'] = {i for i in ips if is_ipv4_strict(i)}
+        iocs['browser_extensions'] = browser_extensions
 
     except Exception as e:
         logger.warning(f"Error extracting IOCs: {e}")
@@ -342,6 +347,9 @@ def create_misp_event(misp: PyMISP, article: Dict, iocs: Dict[str, Set[str]]) ->
                         attr_type = 'sha512'
                     else:
                         continue
+                elif ioc_type == 'browser_extensions':
+                    event.add_attribute(type='text', value=ioc, category='Other', to_ids=True, comment='browser-extension-id')
+                    continue
                 else:
                     continue
                 try:
