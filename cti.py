@@ -233,7 +233,7 @@ def extract_content(entry) -> str:
             # Remove script and style elements
             for script in soup(["script", "style"]):
                 script.decompose()
-            return soup.get_text()
+            return soup.get_text(separator="\n")
         return ""
     except Exception as e:
         logger.warning(f"Failed to fetch content from {url}: {e}")
@@ -393,7 +393,7 @@ def fetch_full_content(url: str, crawl_links: bool = False, max_links: int = 10)
         soup = BeautifulSoup(response.text, 'html.parser')
         for script in soup(["script", "style"]):
             script.decompose()
-        base_text = soup.get_text()
+        base_text = soup.get_text(separator="\n")
         result.append((url, base_text))
         if not crawl_links:
             return result
@@ -427,7 +427,7 @@ def fetch_full_content(url: str, crawl_links: bool = False, max_links: int = 10)
                 child_soup = BeautifulSoup(r.text, 'html.parser')
                 for script in child_soup(["script", "style"]):
                     script.decompose()
-                result.append((full_url, child_soup.get_text()))
+                result.append((full_url, child_soup.get_text(separator="\n")))
             except Exception as e:
                 logger.debug(f"Failed to crawl linked content {full_url}: {e}")
                 continue
