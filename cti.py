@@ -349,6 +349,7 @@ def create_misp_event(misp: PyMISP, article: Dict, iocs: Dict[str, Set[str]]) ->
                         continue
                 elif ioc_type == 'browser_extensions':
                     event.add_attribute(type='text', value=ioc, category='Other', to_ids=True, comment='browser-extension-id')
+                    logger.info(f"Added browser extension ID: {ioc}")
                     continue
                 else:
                     continue
