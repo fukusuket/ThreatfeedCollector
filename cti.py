@@ -179,6 +179,8 @@ def extract_iocs(text: str) -> Dict[str, Set[str]]:
     try:
         hashes = set(iocextract.extract_hashes(text))
         iocs['hashes'] = {h for h in hashes if len(h) in [32, 40, 64, 128]}
+        browser_extensions = set(EXT_ID_PATTERN.findall(text or ""))
+        iocs['browser_extensions'] = browser_extensions
 
         text = extract_lines_with_defang_markers(text)
         text = text.replace("hxxp", "http").replace("[://]", "://")
@@ -193,7 +195,6 @@ def extract_iocs(text: str) -> Dict[str, Set[str]]:
         # Extract IPv4 addresses
         ips = set(iocextract.extract_ipv4s(text, refang=True))
 
-        browser_extensions = set(EXT_ID_PATTERN.findall(text or ""))
 
         # Extract domains from URLs and standalone domains
         # First extract domains from URLs we found
@@ -215,7 +216,6 @@ def extract_iocs(text: str) -> Dict[str, Set[str]]:
 
         iocs['fqdns'] = {d for d in domains if is_suspicious_domain(d)}
         iocs['ips'] = {i for i in ips if is_ipv4_strict(i)}
-        iocs['browser_extensions'] = browser_extensions
 
     except Exception as e:
         logger.warning(f"Error extracting IOCs: {e}")
