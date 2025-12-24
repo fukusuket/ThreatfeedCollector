@@ -41,7 +41,7 @@ Analyze the **full text of the provided threat research blog article** and produ
 ## Output format (must match exactly)
 
 ### Title
-{{ARTICLE_TITLE}}
+[{{ARTICLE_TITLE}}]({{ARTICLE_URL}})
 
 ### Summary
 Write four short sentences. Cover:

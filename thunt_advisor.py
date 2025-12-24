@@ -24,6 +24,7 @@ def _get_api_key(service: str = "openai") -> str:
 def analyze_threat_article(
     content: str,
     title: str = "",
+    url: str = "",
     model: str = "gpt-5.2",
     prompt_path: str = "/shared/threatfeed-collector/prompt-hunt.md",
     additional_pre_context: str = "",
@@ -32,6 +33,7 @@ def analyze_threat_article(
         prompt_template = Path(prompt_path).read_text(encoding="utf-8")
         prompt_template = prompt_template.replace("{{ADDITIONAL_PRE_CONTEXT}}", additional_pre_context)
         prompt_template = prompt_template.replace("{{ARTICLE_TITLE}}", title)
+        prompt_template = prompt_template.replace("{{ARTICLE_URL}}", url)
         prompt = prompt_template.replace("{{CONTENT}}", content)
     except Exception:
         return ""
