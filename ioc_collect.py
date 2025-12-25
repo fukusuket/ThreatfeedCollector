@@ -9,7 +9,6 @@ import re
 import sys
 import time
 import logging
-from dataclasses import dataclass
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -17,7 +16,7 @@ from dotenv import load_dotenv
 import requests
 import urllib3
 from datetime import datetime, timedelta
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 from urllib.parse import urljoin, urlparse
 
 import feedparser
@@ -26,7 +25,7 @@ from feedparser import USER_AGENT
 from pymisp import PyMISP
 from dateutil import parser
 
-from ioc_extractor import extract_iocs_from_content, create_misp_event_object, COMMON_DOMAINS
+from ioc_extract import extract_iocs_from_content, create_misp_event_object, COMMON_DOMAINS
 
 urllib3.disable_warnings()
 
@@ -55,14 +54,7 @@ if Path("/shared/threatfeed-collector/rss_feeds.csv"):
 OUTPUT_CSV = os.getenv('OUTPUT_CSV', f'ioc_stats_{datetime.now().strftime("%Y%m%d")}.csv')
 DAYS_BACK = int(os.getenv('DAYS_BACK'))
 
-
-@dataclass
-class Article:
-    title: str = ""
-    date: str = ""
-    url: str = ""
-    content: str = ""
-    vendor: str = ""
+Article = Dict[str, str]
 
 
 def is_recent(date_str: str, cutoff_date: datetime) -> bool:
@@ -122,13 +114,13 @@ def process_feed(vendor_name: str, feed_url: str, cutoff_date: datetime, crawl_l
                 else:
                     content = extract_content(entry)
 
-                articles.append(Article(
-                    title=entry.get('title', ''),
-                    date=pub_date,
-                    url=entry.get('link', ''),
-                    content=content,
-                    vendor=vendor_name
-                ))
+                articles.append({
+                    'title': entry.get('title', ''),
+                    'date': pub_date,
+                    'url': entry.get('link', ''),
+                    'content': content,
+                    'vendor': vendor_name
+                })
 
         logger.info(f"Extracted {len(articles)} recent articles from {vendor_name}")
         return articles
@@ -195,7 +187,7 @@ def fetch_full_content(url: str, crawl_links: bool = False, max_links: int = 10)
 
 
 def add_event(article: Article, iocs, misp: PyMISP) -> bool:
-    event_info = f"[{article.vendor}] {article.title[:100]}"  # Truncate title
+    event_info = f"[{article.get('vendor', '')}] {article.get('title', '')[:100]}"  # Truncate title
     logger.info(f"Creating MISP event: {event_info}")
     try:
         existing_events = misp.search(eventinfo=event_info)
@@ -214,17 +206,17 @@ def add_event(article: Article, iocs, misp: PyMISP) -> bool:
         return False
 
 def process_article(misp: PyMISP, article: Article, vendor: str, crawl_links: bool = False) -> bool:
-    logger.info(f"Processing article: {article.title[:100]}...")
-    url = article.url
-    text = article.content
+    logger.info(f"Processing article: {article.get('title', '')[:100]}...")
+    url = article.get('url', '')
+    text = article.get('content', '')
     fetch_res = fetch_full_content(url, crawl_links=crawl_links) if url else []
     if not fetch_res and text:
         fetch_res = [(url, text)]
     for url, content in fetch_res:
-        article.url = url
-        article.content = content or text
+        article['url'] = url
+        article['content'] = content or text
 
-        iocs = extract_iocs_from_content(article.content)
+        iocs = extract_iocs_from_content(article.get('content', ''))
         total_iocs = sum(len(s) for s in iocs.values())
         logger.info(f"Extracted {total_iocs} IOCs from {vendor}")
 
@@ -305,4 +297,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
