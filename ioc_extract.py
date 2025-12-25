@@ -220,11 +220,11 @@ def create_misp_event_object(article: Article, event_info: str, iocs: Dict[str, 
         event.add_attribute(type="comment", value=article.content, category='Other', to_ids=False)
 
         # TODO PoC for AI analysis summary
-        ai_summary = analyze_threat_article(content=article.content, title=article.title, url=article.url)
-        event.add_event_report(name="[en]_" + event_info, content=trim_markdown_fence(ai_summary), distribution=0)
-
-        ai_summary_jp = analyze_threat_article(content=ai_summary, prompt_path="/shared/threatfeed-collector/prompt-translate.md")
-        event.add_event_report(name="[jp]_" + event_info, content=trim_markdown_fence(ai_summary_jp), distribution=0)
+        # ai_summary = analyze_threat_article(content=article.content, title=article.title, url=article.url)
+        # event.add_event_report(name="[en]_" + event_info, content=trim_markdown_fence(ai_summary), distribution=0)
+        #
+        # ai_summary_jp = analyze_threat_article(content=ai_summary, prompt_path="/shared/threatfeed-collector/prompt-translate.md")
+        # event.add_event_report(name="[jp]_" + event_info, content=trim_markdown_fence(ai_summary_jp), distribution=0)
 
         logger.info(f"Created MISP Event object.")
         return event
