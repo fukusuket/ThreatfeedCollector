@@ -26,7 +26,7 @@ from feedparser import USER_AGENT
 from pymisp import PyMISP
 from dateutil import parser
 
-from ioc_extractor import extract_iocs, create_misp_event_object, COMMON_DOMAINS
+from ioc_extract import extract_iocs_from_content, create_misp_event_object, COMMON_DOMAINS
 
 urllib3.disable_warnings()
 
@@ -224,7 +224,7 @@ def process_article(misp: PyMISP, article: Article, vendor: str, crawl_links: bo
         article.url = url
         article.content = content or text
 
-        iocs = extract_iocs(article.content)
+        iocs = extract_iocs_from_content(article.content)
         total_iocs = sum(len(s) for s in iocs.values())
         logger.info(f"Extracted {total_iocs} IOCs from {vendor}")
 

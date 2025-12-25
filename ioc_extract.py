@@ -127,7 +127,7 @@ def extract_lines_with_defang_markers(text: str) -> str:
         if "[.]" in line or "[://]" in line
     )
 
-def extract_iocs(text: str) -> Dict[str, Set[str]]:
+def extract_iocs_from_content(text: str) -> Dict[str, Set[str]]:
     """Extract IoCs from text using iocextract library"""
     if not text:
         return {'urls': set(), 'ips': set(), 'fqdns': set(), 'hashes': set(), 'browser_extensions': set()}
