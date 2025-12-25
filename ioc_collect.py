@@ -26,7 +26,7 @@ from feedparser import USER_AGENT
 from pymisp import PyMISP
 from dateutil import parser
 
-from ioc_extract import extract_iocs_from_content, create_misp_event_object, COMMON_DOMAINS
+from ioc_extractor import extract_iocs_from_content, create_misp_event_object, COMMON_DOMAINS
 
 urllib3.disable_warnings()
 
