@@ -348,7 +348,7 @@ def create_misp_event(misp: PyMISP, article: Dict, iocs: Dict[str, Set[str]]) ->
                     else:
                         continue
                 elif ioc_type == 'browser_extensions':
-                    event.add_attribute(type='text', value=ioc, category='Other', to_ids=True, comment='browser-extension-id')
+                    event.add_attribute(type='chrome-extension-id', value=ioc, category='Payload installation', to_ids=True)
                     logger.info(f"Added browser extension ID: {ioc}")
                     continue
                 else:
@@ -360,11 +360,11 @@ def create_misp_event(misp: PyMISP, article: Dict, iocs: Dict[str, Set[str]]) ->
         event.add_attribute(type="comment", value=article['content'], category='Other', to_ids=False)
 
         # TODO PoC for AI analysis summary
-        ai_summary = analyze_threat_article(content=article['content'], title=article['title'], url=article['url'])
-        event.add_event_report(name="[en]_" + event_title, content=trim_markdown_fence(ai_summary), distribution=0)
-
-        ai_summary_jp = analyze_threat_article(content=ai_summary, prompt_path="/shared/threatfeed-collector/prompt-translate.md")
-        event.add_event_report(name="[jp]_" + event_title, content=trim_markdown_fence(ai_summary_jp), distribution=0)
+        # ai_summary = analyze_threat_article(content=article['content'], title=article['title'], url=article['url'])
+        # event.add_event_report(name="[en]_" + event_title, content=trim_markdown_fence(ai_summary), distribution=0)
+        #
+        # ai_summary_jp = analyze_threat_article(content=ai_summary, prompt_path="/shared/threatfeed-collector/prompt-translate.md")
+        # event.add_event_report(name="[jp]_" + event_title, content=trim_markdown_fence(ai_summary_jp), distribution=0)
 
         misp.add_event(event, pythonify=True)
         logger.info(f"Created MISP Event.")
