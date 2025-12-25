@@ -66,7 +66,7 @@ Lines starting with `#` are treated as comments.
 
 ```bash
 source venv/bin/activate
-python3 cti.py
+python3 ioc_collect.py
 ```
 
 The tool will:
