@@ -50,7 +50,7 @@ Write four short sentences. Cover:
 - impact / risk to defenders (if stated)
 - malware/tools/ttps used (if stated)
 
-### Attack Timeline
+### Timeline
 - Publication date: (state date if present; otherwise "Unknown (not stated in the article)")
 - First observed activity date: (state date if present; otherwise "Unknown (not stated in the article)")
 
