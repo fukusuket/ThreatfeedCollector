@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 import requests
 import urllib3
 from datetime import datetime, timedelta
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 from urllib.parse import urljoin, urlparse
 
 import feedparser
@@ -166,7 +166,7 @@ def fetch_full_content(url: str, crawl_links: bool = False, max_links: int = 10)
             if not href:
                 continue
             full_url = urljoin(url, href)
-            full_url_lower = full_url.lower()
+            full_url_lower = urljoin(url, href).lower()
             if not full_url_lower.startswith(('http://', 'https://')):
                 continue
             if any(dom in full_url_lower for dom in COMMON_DOMAINS):
