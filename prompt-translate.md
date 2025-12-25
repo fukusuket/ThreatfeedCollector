@@ -12,6 +12,13 @@ You are a bilingual security technical writer. Translate the following Markdown 
 
 ## Output
 - Return only the translated Markdown with the same layout.
+When translating, use the following fixed Japanese headings for these section titles (keep the same heading levels and structure):
+- Title -> タイトル
+- Summary -> 概要
+- Attack Timeline -> 攻撃タイムライン
+- Targeted Systems -> 標的システム
+- Threat Hunting Advice -> 脅威ハンティング観点
+- IoCs -> IoCs
 
 ## Input
 {{CONTENT}}

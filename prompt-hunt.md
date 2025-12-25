@@ -59,7 +59,7 @@ Write four short sentences. Cover:
 - Include relevant environment details if stated (framework/middleware/OS/cloud service), but **avoid product-name dumping**.
 - If targets are not specified, write **"Not stated in the article"**.
 
-### Threat Hunting Advice
+### Threat Hunting Guidance
 Write **3 to 5 bullet points** using `-`. Each bullet must be **one short sentence** and must:
 - Each sentence must contain a defender's action verb(search/detect/block/review/monitor).
 - Do **not** write full detection queries or rule code.
