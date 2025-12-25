@@ -8,6 +8,7 @@ from dateutil import parser
 import iocextract
 from pymispwarninglists import WarningLists
 
+from ioc_collect import Article
 from thunt_advisor import analyze_threat_article
 
 logging.basicConfig(
@@ -180,12 +181,12 @@ def extract_iocs(text: str) -> Dict[str, Set[str]]:
 
     return iocs
 
-def create_misp_event_object(article: Dict, event_info: str, iocs: Dict[str, Set[str]]) -> Optional[MISPEvent]:
+def create_misp_event_object(article: Article, event_info: str, iocs: Dict[str, Set[str]]) -> Optional[MISPEvent]:
     try:
         event = MISPEvent()
         event.info = event_info
-        event.date = to_yyyy_mm_dd(article['date'])
-        event.add_attribute(type="url", value=article['url'], category='External analysis', to_ids=False)
+        event.date = to_yyyy_mm_dd(article.date)
+        event.add_attribute(type="url", value=article.url, category='External analysis', to_ids=False)
         for ioc_type, ioc_set in iocs.items():
             for ioc in ioc_set:
                 if ioc_type == 'urls':
@@ -216,10 +217,10 @@ def create_misp_event_object(article: Dict, event_info: str, iocs: Dict[str, Set
                     event.add_attribute(type=attr_type, value=ioc, category='Network activity', to_ids=True)
                 except Exception as e:
                     logger.warning(f"Failed to add attribute {ioc} of type {attr_type}: {e}")
-        event.add_attribute(type="comment", value=article['content'], category='Other', to_ids=False)
+        event.add_attribute(type="comment", value=article.content, category='Other', to_ids=False)
 
         # TODO PoC for AI analysis summary
-        ai_summary = analyze_threat_article(content=article['content'], title=article['title'], url=article['url'])
+        ai_summary = analyze_threat_article(content=article.content, title=article.title, url=article.url)
         event.add_event_report(name="[en]_" + event_info, content=trim_markdown_fence(ai_summary), distribution=0)
 
         ai_summary_jp = analyze_threat_article(content=ai_summary, prompt_path="/shared/threatfeed-collector/prompt-translate.md")
