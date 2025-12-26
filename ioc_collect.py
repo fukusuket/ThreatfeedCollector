@@ -130,7 +130,7 @@ def process_feed(vendor_name: str, feed_url: str, cutoff_date: datetime) -> List
         return []
 
 
-def fetch_full_content(article: dict, crawl_links: bool = False, max_links: int = 50, crawl_myself:bool = False) -> List[Article]:
+def fetch_full_content(article: dict, crawl_links: bool = False, max_links: int = 30, crawl_myself:bool = False) -> List[Article]:
     def _soup_to_text(soup: BeautifulSoup) -> str:
         for script in soup(["script", "style"]):
             script.decompose()
