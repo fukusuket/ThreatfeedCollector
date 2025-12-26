@@ -25,7 +25,7 @@ from feedparser import USER_AGENT
 from pymisp import PyMISP
 from dateutil import parser
 
-from ioc_extract import extract_iocs_from_content, create_misp_event_object, COMMON_DOMAINS
+from ioc_extract import extract_iocs_from_content, create_misp_event_object, COMMON_DOMAINS, to_yyyy_mm_dd
 
 urllib3.disable_warnings()
 
@@ -135,11 +135,12 @@ def fetch_full_content(article: dict, crawl_links: bool = False, max_links: int 
         for script in soup(["script", "style"]):
             script.decompose()
         return soup.get_text(separator="\n")
+
     url = article.get('url', '')
+    logger.info(f"Fetching article content from: {url}")
     if not url:
         return []
     try:
-        logger.info(f"Fetching article content from: {url}")
         result: List[Article] = []
         response = requests.get(url, timeout=10, verify=False, headers={'User-Agent': USER_AGENT})
         response.raise_for_status()
@@ -178,7 +179,7 @@ def fetch_full_content(article: dict, crawl_links: bool = False, max_links: int 
                 child_title = (child_soup.title.string or '').strip() if child_soup.title and child_soup.title.string else ''
                 linked_article = {
                     'title': child_title or f"Linked content from {url}",
-                    'date': datetime.now().strftime('%Y-%m-%d'),
+                    'date': to_yyyy_mm_dd(article.get('date', datetime.now().strftime('%Y-%m-%d'))),
                     'url': full_url,
                     'content': _soup_to_text(child_soup),
                     'vendor': article.get('vendor', '')
