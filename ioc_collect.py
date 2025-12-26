@@ -216,9 +216,10 @@ def add_event(article: Article, iocs, misp: PyMISP) -> bool:
 
 
 def total_iocs_except_hashes(iocs: Dict[str, Set[str]]) -> int:
-    if not any(key != 'hashes' and len(values) > 0 for key, values in iocs.items())(iocs):
+    if not any(key != 'hashes' and len(values) > 0 for key, values in iocs.items()):
         return 0
     return sum(len(values) for key, values in iocs.items() if key != 'hashes')
+
 
 def process_article(misp: PyMISP, article: Article, vendor: str, crawl_links: bool = False, crawl_myself:bool = False) -> bool:
     logger.info(f"Processing article: {article.get('title', '')[:100]}...")
