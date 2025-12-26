@@ -62,9 +62,9 @@ Write four short sentences. Cover:
 ### Threat Hunting Guidance
 Write **3 to 5 bullet points** using `-`. Each bullet must be **one short sentence** and must:
 - Each sentence must contain a defender's action verb(search/detect/block/review/monitor).
+- Write advice as **behavior-based hunting angles** that SOC analysts can translate into SIEM/EDR/Cloud log queries.
 - Do **not** write full detection queries or rule code.
 - Avoid using the word "correlate"; instead, use clearer phrasing to describe the relationship.
-- Write advice as **behavior-based hunting angles** that SOC analysts can translate into SIEM/EDR/Cloud log queries.
 - If applicable and clearly mappable, append ATT&CK IDs in parentheses at the end of the sentence.
 
 ### IoCs
