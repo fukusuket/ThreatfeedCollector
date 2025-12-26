@@ -130,21 +130,23 @@ def process_feed(vendor_name: str, feed_url: str, cutoff_date: datetime) -> List
         return []
 
 
-def fetch_full_content(url: str, crawl_links: bool = False, max_links: int = 10) -> List[Tuple[str, str]]:
+def fetch_full_content(article: dict, crawl_links: bool = False, max_links: int = 50) -> List[Article]:
     def _soup_to_text(soup: BeautifulSoup) -> str:
         for script in soup(["script", "style"]):
             script.decompose()
         return soup.get_text(separator="\n")
+    url = article.get('url', '')
     if not url:
         return []
     try:
         logger.info(f"Fetching article content from: {url}")
-        result: List[Tuple[str, str]] = []
+        result: List[Article] = []
         response = requests.get(url, timeout=10, verify=False, headers={'User-Agent': USER_AGENT})
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
         base_text = _soup_to_text(soup)
-        result.append((url, base_text))
+        article['content'] = base_text
+        result.append(article)
         if not crawl_links:
             return result
 
@@ -163,11 +165,9 @@ def fetch_full_content(url: str, crawl_links: bool = False, max_links: int = 10)
                 continue
             if any(dom in full_url_lower for dom in COMMON_DOMAINS):
                 continue
-            if full_url in seen or urlparse(full_url).netloc in seen:
+            if full_url in seen:
                 continue
-
             seen.add(full_url)
-            seen.add(urlparse(full_url).netloc)
             if len(result) >= max_links:
                 break
             try:
@@ -175,7 +175,15 @@ def fetch_full_content(url: str, crawl_links: bool = False, max_links: int = 10)
                 r = requests.get(full_url, timeout=10, verify=False, headers={'User-Agent': USER_AGENT})
                 r.raise_for_status()
                 child_soup = BeautifulSoup(r.text, 'html.parser')
-                result.append((full_url, _soup_to_text(child_soup)))
+                child_title = (child_soup.title.string or '').strip() if child_soup.title and child_soup.title.string else ''
+                linked_article = {
+                    'title': child_title or f"Linked content from {url}",
+                    'date': datetime.now().strftime('%Y-%m-%d'),
+                    'url': full_url,
+                    'content': _soup_to_text(child_soup),
+                    'vendor': article.get('vendor', '')
+                }
+                result.append(linked_article)
             except Exception as e:
                 logger.debug(f"Failed to crawl linked content {full_url}: {e}")
                 continue
@@ -206,16 +214,21 @@ def add_event(article: Article, iocs, misp: PyMISP) -> bool:
 
 def process_article(misp: PyMISP, article: Article, vendor: str, crawl_links: bool = False) -> bool:
     logger.info(f"Processing article: {article.get('title', '')[:100]}...")
-    url = article.get('url', '')
     text = article.get('content', '')
-    fetch_res = fetch_full_content(url, crawl_links=crawl_links) if url else []
-    if not fetch_res and text:
-        fetch_res = [(url, text)]
-    for url, content in fetch_res:
-        article['url'] = url
-        article['content'] = content or text
+    fetch_res = fetch_full_content(article, crawl_links=crawl_links) if article else []
+    if not fetch_res:
+        return False
+    created = False
+    for fetched in fetch_res:
+        url = fetched.get('url', '')
+        content = fetched.get('content', '') or text
+        fetched['content'] = content
+        fetched['vendor'] = fetched.get('vendor', vendor)
+        fetched['title'] = fetched.get('title', article.get('title', ''))
 
-        iocs = extract_iocs_from_content(article.get('content', ''))
+        logger.info(f"Processing {url}")
+
+        iocs = extract_iocs_from_content(content)
         total_iocs = sum(len(s) for s in iocs.values())
         logger.info(f"Extracted {total_iocs} IOCs from {vendor}")
 
@@ -227,8 +240,9 @@ def process_article(misp: PyMISP, article: Article, vendor: str, crawl_links: bo
                     logger.info(f"    Sample: {sample_iocs}")
 
         if total_iocs > 1:
-            return add_event(article, iocs, misp)
-    return False
+            if add_event(fetched, iocs, misp):
+                created = True
+    return created
 
 
 def save_stats(misp: PyMISP) -> None:
