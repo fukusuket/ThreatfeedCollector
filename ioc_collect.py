@@ -130,7 +130,7 @@ def process_feed(vendor_name: str, feed_url: str, cutoff_date: datetime) -> List
         return []
 
 
-def fetch_full_content(article: dict, crawl_links: bool = False, max_links: int = 50) -> List[Article]:
+def fetch_full_content(article: dict, crawl_links: bool = False, max_links: int = 50, crawl_myself:bool = False) -> List[Article]:
     def _soup_to_text(soup: BeautifulSoup) -> str:
         for script in soup(["script", "style"]):
             script.decompose()
@@ -167,6 +167,8 @@ def fetch_full_content(article: dict, crawl_links: bool = False, max_links: int 
             if any(dom in full_url_lower for dom in COMMON_DOMAINS):
                 continue
             if full_url in seen:
+                continue
+            if urlparse(full_url).netloc == base_host and not crawl_myself:
                 continue
             seen.add(full_url)
             if len(result) >= max_links:
@@ -213,10 +215,10 @@ def add_event(article: Article, iocs, misp: PyMISP) -> bool:
         logger.warning(f"Failed to create event: {e}")
     return False
 
-def process_article(misp: PyMISP, article: Article, vendor: str, crawl_links: bool = False) -> bool:
+def process_article(misp: PyMISP, article: Article, vendor: str, crawl_links: bool = False, crawl_myself:bool = False) -> bool:
     logger.info(f"Processing article: {article.get('title', '')[:100]}...")
     text = article.get('content', '')
-    articles = fetch_full_content(article, crawl_links=crawl_links) if article else []
+    articles = fetch_full_content(article, crawl_links=crawl_links, crawl_myself=crawl_myself) if article else []
     if not articles:
         return False
     created = False
@@ -295,18 +297,18 @@ def main() -> None:
     for vendor, feed_url, blog_url, crawl_links in feeds:
         logger.info(f"Processing vendor: {vendor}")
         crawl_links = True if str(crawl_links).lower() == "true" else False
-        articles = []
+        crawl_myself = False
         if feed_url:
             articles = process_feed(vendor, feed_url, cutoff_date)
         else:
-            article = {'title': vendor + " blog",
+            articles = [ {'title': vendor + " blog",
                        'date': datetime.now().strftime('%Y-%m-%d'),
                        'url': blog_url,
                        'content': '',
-                       'vendor': vendor}
-            articles.append(article)
+                       'vendor': vendor} ]
+            crawl_myself = True
         for article in articles:
-            process_article(misp, article, vendor, crawl_links)
+            process_article(misp, article, vendor, crawl_links, crawl_myself)
 
     save_stats(misp)
     elapsed = time.time() - start_time
