@@ -215,19 +215,14 @@ def add_event(article: Article, iocs, misp: PyMISP) -> bool:
 def process_article(misp: PyMISP, article: Article, vendor: str, crawl_links: bool = False) -> bool:
     logger.info(f"Processing article: {article.get('title', '')[:100]}...")
     text = article.get('content', '')
-    fetch_res = fetch_full_content(article, crawl_links=crawl_links) if article else []
-    if not fetch_res:
+    articles = fetch_full_content(article, crawl_links=crawl_links) if article else []
+    if not articles:
         return False
     created = False
-    for fetched in fetch_res:
-        url = fetched.get('url', '')
-        content = fetched.get('content', '') or text
-        fetched['content'] = content
-        fetched['vendor'] = fetched.get('vendor', vendor)
-        fetched['title'] = fetched.get('title', article.get('title', ''))
+    for article in articles:
+        logger.info(f"Processing {article.get('url', '')}")
 
-        logger.info(f"Processing {url}")
-
+        content = article.get('content', '') or text
         iocs = extract_iocs_from_content(content)
         total_iocs = sum(len(s) for s in iocs.values())
         logger.info(f"Extracted {total_iocs} IOCs from {vendor}")
@@ -240,7 +235,7 @@ def process_article(misp: PyMISP, article: Article, vendor: str, crawl_links: bo
                     logger.info(f"    Sample: {sample_iocs}")
 
         if total_iocs > 1:
-            if add_event(fetched, iocs, misp):
+            if add_event(article, iocs, misp):
                 created = True
     return created
 
