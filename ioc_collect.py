@@ -87,7 +87,7 @@ def extract_content(entry) -> str:
         return ""
 
 
-def process_feed(vendor_name: str, feed_url: str, cutoff_date: datetime, crawl_links: bool = False) -> List[Article]:
+def process_feed(vendor_name: str, feed_url: str, cutoff_date: datetime) -> List[Article]:
     """Process RSS feed and extract recent articles"""
     try:
         logger.info(f"Fetching RSS feed: {feed_url}")
@@ -275,17 +275,26 @@ def main() -> None:
         with open(RSS_FEEDS_CSV, 'r') as f:
             reader = csv.reader(f)
             next(reader, None)
-            feeds = [(row[0], row[1], row[3]) for row in reader if row and len(row) >= 2 and not row[0].startswith('#')]
+            feeds = [row for row in reader if row and len(row) >= 2 and not row[0].startswith('#')]
     except FileNotFoundError:
         logger.error(f"RSS feeds file not found: {RSS_FEEDS_CSV}")
         sys.exit(1)
 
     logger.info(f"Processing {len(feeds)} RSS feeds")
     cutoff_date = datetime.now() - timedelta(days=DAYS_BACK)
-    for vendor, feed_url, crawl_links in feeds:
+    for vendor, feed_url, blog_url, crawl_links in feeds:
         logger.info(f"Processing vendor: {vendor}")
         crawl_links = True if str(crawl_links).lower() == "true" else False
-        articles = process_feed(vendor, feed_url, cutoff_date, crawl_links)
+        articles = []
+        if feed_url:
+            articles = process_feed(vendor, feed_url, cutoff_date)
+        else:
+            article = {'title': vendor + " blog",
+                       'date': datetime.now().strftime('%Y-%m-%d'),
+                       'url': blog_url,
+                       'content': '',
+                       'vendor': vendor}
+            articles.append(article)
         for article in articles:
             process_article(misp, article, vendor, crawl_links)
 

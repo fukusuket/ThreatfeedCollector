@@ -1,7 +1,6 @@
 Vendor, RSS Feed URL, Blog URL, Crawl links
 Arctic Wolf,https://arcticwolf.com/feed/,https://arcticwolf.com/,False
 Check Point,https://research.checkpoint.com/feed/,https://research.checkpoint.com/,False
-Cisco Talos,https://blog.talosintelligence.com/rss/,https://blog.talosintelligence.com/,False
 CrowdStrike,https://www.crowdstrike.com/en-us/blog/feed,https://www.crowdstrike.com/blog/,False
 Fortinet,https://feeds.fortinet.com/fortinet/blog/threat-research&x=1,https://www.fortinet.com/blog/threat-research,False
 Google Cloud Threat Intelligence,https://feeds.feedburner.com/threatintelligence/pvexyqv7v0v,https://cloud.google.com/blog/topics/threat-intelligence,False
@@ -16,4 +15,5 @@ Unit42(Palo Alto Networks),https://unit42.paloaltonetworks.com/category/threat-r
 ProofPoint,https://www.proofpoint.com/us/threat-insight-blog.xml,https://www.proofpoint.com/us/blog/threat-insight,False
 BleepingComputer,https://www.bleepingcomputer.com/feed/security/,https://www.bleepingcomputer.com/news/security/,True
 The Hacker News,https://feeds.feedburner.com/TheHackersNews,https://thehackernews.com/,True
+KOI,,https://www.koi.ai/blog,True
 LayerX,https://layerxsecurity.com/feed,https://layerxsecurity.com/blog/,False
