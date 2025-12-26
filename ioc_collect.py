@@ -196,14 +196,13 @@ def add_event(article: Article, iocs, misp: PyMISP) -> bool:
             return False
         logger.info(f"No existing event found with title: {event_info}")
         event = create_misp_event_object(article, event_info, iocs)
-        if not event:
-            logger.info("No valid IOCs found, skipping event creation")
-            return False
-        misp.add_event(event, pythonify=True)
-        return True
+        if event:
+            misp.add_event(event, pythonify=True)
+            return True
+        logger.info("No valid IOCs found, skipping event creation")
     except Exception as e:
         logger.warning(f"Failed to create event: {e}")
-        return False
+    return False
 
 def process_article(misp: PyMISP, article: Article, vendor: str, crawl_links: bool = False) -> bool:
     logger.info(f"Processing article: {article.get('title', '')[:100]}...")
