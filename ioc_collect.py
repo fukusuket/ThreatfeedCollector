@@ -242,7 +242,7 @@ def process_article(misp: PyMISP, article: Article, vendor: str, crawl_links: bo
                 if sample_iocs:
                     logger.info(f"    Sample: {sample_iocs}")
 
-        if total_iocs_except_hashes(iocs) > 1:
+        if total_iocs_except_hashes(iocs) > 2:
             if add_event(article, iocs, misp):
                 created = True
     return created
