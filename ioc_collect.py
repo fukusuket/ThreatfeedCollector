@@ -104,7 +104,6 @@ def process_feed(vendor_name: str, feed_url: str, cutoff_date: datetime) -> List
             pub_date = entry.get('published', '')
             if is_recent(pub_date, cutoff_date):
                 logger.info(f"Found recent article: {entry.get('title', '')}")
-
                 content = ""
                 if hasattr(entry, 'content') and entry.content:
                     content = entry.content[0].value if isinstance(entry.content, list) else entry.content
@@ -215,11 +214,9 @@ def add_event(article: Article, iocs, misp: PyMISP) -> bool:
         logger.warning(f"Failed to create event: {e}")
     return False
 
-def has_non_hash_iocs(iocs: Dict[str, Set[str]]) -> bool:
-    return any(key != 'hashes' and len(values) > 0 for key, values in iocs.items())
 
 def total_iocs_except_hashes(iocs: Dict[str, Set[str]]) -> int:
-    if not has_non_hash_iocs(iocs):
+    if not any(key != 'hashes' and len(values) > 0 for key, values in iocs.items())(iocs):
         return 0
     return sum(len(values) for key, values in iocs.items() if key != 'hashes')
 
