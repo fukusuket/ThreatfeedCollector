@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 import requests
 import urllib3
 from datetime import datetime, timedelta
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Set
 from urllib.parse import urljoin, urlparse
 
 import feedparser
@@ -215,6 +215,14 @@ def add_event(article: Article, iocs, misp: PyMISP) -> bool:
         logger.warning(f"Failed to create event: {e}")
     return False
 
+def has_non_hash_iocs(iocs: Dict[str, Set[str]]) -> bool:
+    return any(key != 'hashes' and len(values) > 0 for key, values in iocs.items())
+
+def total_iocs_except_hashes(iocs: Dict[str, Set[str]]) -> int:
+    if not has_non_hash_iocs(iocs):
+        return 0
+    return sum(len(values) for key, values in iocs.items() if key != 'hashes')
+
 def process_article(misp: PyMISP, article: Article, vendor: str, crawl_links: bool = False, crawl_myself:bool = False) -> bool:
     logger.info(f"Processing article: {article.get('title', '')[:100]}...")
     text = article.get('content', '')
@@ -237,7 +245,7 @@ def process_article(misp: PyMISP, article: Article, vendor: str, crawl_links: bo
                 if sample_iocs:
                     logger.info(f"    Sample: {sample_iocs}")
 
-        if total_iocs > 1:
+        if total_iocs_except_hashes(iocs) > 1:
             if add_event(article, iocs, misp):
                 created = True
     return created
