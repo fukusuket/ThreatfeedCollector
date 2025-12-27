@@ -17,6 +17,8 @@ Analyze the **full text of the provided threat research blog article** and produ
   - Only include IoCs **if explicitly stated in the article** and **only when essential to support a behavior**.
 - Across the entire output, highlight distinctive technical nouns/entities using Markdown inline code ticks (e.g., `CVE-2025-xxx`, `cmd.exe`, `C:\Windows\System32\`, `HKCU\...`, `example.com`, `APT29`, `mimikatz`).
 - Do NOT include any meta\-phrases such as: "This article says\.\.\.", "The article states\.\.\.", "The post reports\.\.\.", "According to the article\.\.\.", "This report\.\.\."
+- For communication destination IoCs (e.g., `Domain`, `URL`, `IP`), **sanitize the value** to prevent accidental click-through or activation in the UI: defang by replacing `.` with `[.]` and `http://` or `https://` with `hxxp://` or `hxxps://`, and wrap the value in inline code ticks.
+
 ---
 
 ## Anti-hallucination rules (strict)
@@ -81,7 +83,6 @@ Do not output invalid or improperly formatted values.
 | Type | Value | Context |
 |---|---|---|
 | (example) Domain | example\.com | Mentioned by the article as a C2 communication destination |
-
 
 ---
 
