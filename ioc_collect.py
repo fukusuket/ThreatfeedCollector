@@ -204,6 +204,10 @@ def add_event(article: Article, iocs, misp: PyMISP) -> bool:
         if existing_events and len(existing_events) > 0:
             logger.info(f"Event with same title already exists, skipping: {event_info}")
             return False
+        url = misp.search(controller="attributes", value=article.get('url', ''), type="url", category="External analysis", pythonify=True)
+        if url and len(url) > 0:
+            logger.info(f"Event with same External analysis URL already exists, skipping: {article.get('url', '')}")
+            return False
         logger.info(f"No existing event found with title: {event_info}")
         event = create_misp_event_object(article, event_info, iocs)
         if event:
