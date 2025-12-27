@@ -16,7 +16,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# RFC 3986
 URL_REGEX = re.compile(
     r'^(?:http|https|ftp)://'
     r'(?:\S+(?::\S*)?@)?'
@@ -29,40 +28,47 @@ URL_REGEX = re.compile(
     r'$'
 )
 
-EXT_ID_PATTERN = re.compile(r'[a-p]{32}')
+EXTENSION_ID_PATTERN = re.compile(r'[a-p]{32}')
 
-COMMON_DOMAINS = {'google.com', 'microsoft.com', 'apple.com', 'amazon.com', 'github.com', 'stackoverflow.com', 'nist.gov', 'x.com', 'feedburner.com',
-                  'twitter.com', 'facebook.com', 'linkedin.com', 'instagram.com', 'youtube.com', 'pastebin.com', 'infosec.exchange',
-                  'virustotal.com', 'urlvoid.com', 'hybrid-analysis.com', 'any.run', 'joesandbox.com', 'bleepingcomputer.com', 'thehackernews', 'web3adspanels.com'}
+COMMON_DOMAINS = {
+    'google.com', 'microsoft.com', 'apple.com', 'amazon.com', 'github.com', 'stackoverflow.com',
+    'nist.gov', 'x.com', 'feedburner.com', 'twitter.com', 'facebook.com', 'linkedin.com',
+    'instagram.com', 'youtube.com', 'pastebin.com', 'infosec.exchange', 'virustotal.com',
+    'urlvoid.com', 'hybrid-analysis.com', 'any.run', 'joesandbox.com', 'bleepingcomputer.com',
+    'thehackernews', 'web3adspanels.com'
+}
 
-WARNING_LIST = WarningLists(slow_search=True)
+SUSPICIOUS_EXTENSIONS = {
+    '.exe', '.bat', '.cmd', '.com', '.scr', '.pif', '.vbs', '.js', '.jar', '.zip', '.rar',
+    '.7z', '.tar', '.gz', '.bz2', '.msi', '.deb', '.rpm', '.dmg', '.pkg', 'pdf', '.doc',
+    '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.rtf', '.txt', '.xml', '.json', '.php',
+    '.asp', '.aspx', '.jsp', '.cgi', '.pl', '.py', '.rb'
+}
+
+WARNING_LISTS = WarningLists(slow_search=True)
 
 
-def is_ipv4_strict(s: str) -> bool:
+def is_global_ipv4(ip_str: str) -> bool:
     try:
-        ip = ipaddress.IPv4Address(s)
+        ip = ipaddress.IPv4Address(ip_str)
         if not ip.is_global:
             return False
-        r = WARNING_LIST.search(s)
-        if ("List of known IPv4 public DNS resolvers" in str(r)
-                or "List of known Zscaler IP address ranges" in str(r)
-                or "List of known Cloudflare IP ranges" in str(r)
-                or "List of known Akamai IP ranges" in str(r)
-                or "List of known Google IP address ranges" in str(r)):
-            logger.info(f"Excluding IP from warning list: {s})")
+        result = WARNING_LISTS.search(ip_str)
+        if any(name in str(result) for name in ["IPv4 public DNS resolvers", "Zscaler IP", "Cloudflare IP", "Akamai IP", "Google IP"]):
+            logger.info(f"Excluding IP from warning list: {ip_str}")
             return False
         return True
     except ipaddress.AddressValueError:
         return False
 
+
 def is_suspicious_domain(domain: str) -> bool:
-    """Check if domain is suspicious (not in common domains list)"""
     domain = domain.lower()
-    if len(domain) > 253 or not domain or domain.endswith(".txt") or domain.endswith(".exe") or domain.endswith(".zip"):
+    if len(domain) > 253 or not domain or any(domain.endswith(ext) for ext in [".txt", ".exe", ".zip"]):
         return False
     if re.match(r'\d{1,3}(\.\d{1,3}){3}', domain):
         return False
-    if WARNING_LIST.search(domain):
+    if WARNING_LISTS.search(domain):
         logger.info(f"Excluding domain from warning list: {domain}")
         return False
     domain_parts = domain.split('.')
@@ -73,110 +79,83 @@ def is_suspicious_domain(domain: str) -> bool:
 
 
 def is_suspicious_url(url: str) -> bool:
-    """Check if URL is suspicious (not containing common domains)"""
     url_lower = url.lower()
-    if not '/' in url and not url.startswith('http'):
+    if '/' not in url and not url.startswith('http'):
         return False
-    if WARNING_LIST.search(url_lower):
+    if WARNING_LISTS.search(url_lower):
         logger.info(f"Excluding url from warning list: {url_lower}")
         return False
-    return not any(d in url_lower for d in COMMON_DOMAINS)
+    return not any(domain in url_lower for domain in COMMON_DOMAINS)
 
 
 def is_valid_url(url: str) -> bool:
-    if "redacted" in url.lower():
+    if "redacted" in url.lower() or url.count('.') < 1:
         return False
-    if url.count('.') < 1:
-        return False
-
-    suspicious_extensions = {
-        '.exe', '.bat', '.cmd', '.com', '.scr', '.pif', '.vbs', '.js',
-        '.jar', '.zip', '.rar', '.7z', '.tar', '.gz', '.bz2',
-        '.msi', '.deb', '.rpm', '.dmg', '.pkg', 'pdf', '.doc', '.docx',
-        '.xls', '.xlsx', '.ppt', '.pptx', '.rtf', '.txt', '.xml', '.json',
-        '.php', '.asp', '.aspx', '.jsp', '.cgi', '.pl', '.py', '.rb'
-    }
-
     try:
         if '://' in url.lower():
             domain_part = url.split('://')[1].split('/')[0].split(':')[0]
-            if any(domain_part.endswith(ext) for ext in suspicious_extensions):
+            if any(domain_part.endswith(ext) for ext in SUSPICIOUS_EXTENSIONS):
                 return False
     except:
         pass
-
     return bool(URL_REGEX.match(url))
+
 
 def to_yyyy_mm_dd(date_str: str) -> str:
     try:
-        dt = parser.parse(date_str)
-        return dt.strftime("%Y-%m-%d")
+        return parser.parse(date_str).strftime("%Y-%m-%d")
     except Exception:
         return datetime.utcnow().strftime("%Y-%m-%d")
 
-def trim_markdown_fence(text: str) -> str:
-    m = re.match(r"^\s*```(?:\w+)?\s*\n?(.*?)\n?\s*```\s*$", text, re.DOTALL)
-    return m.group(1).strip() if m else text.strip()
 
-def extract_lines_with_defang_markers(text: str) -> str:
-    if not text:
-        return ""
-    return "\n".join(
-        line for line in text.splitlines()
-        if "[.]" in line or "[://]" in line
-    )
+def trim_markdown_fence(text: str) -> str:
+    match = re.match(r"^\s*```(?:\w+)?\s*\n?(.*?)\n?\s*```\s*$", text, re.DOTALL)
+    return match.group(1).strip() if match else text.strip()
+
 
 def extract_iocs_from_content(text: str) -> Dict[str, Set[str]]:
-    """Extract IoCs from text using iocextract library"""
     if not text:
         return {'urls': set(), 'ips': set(), 'fqdns': set(), 'hashes': set(), 'browser_extensions': set()}
 
-    iocs = {'urls': set(), 'ips': set(), 'fqdns': set(), 'hashes': set(),'browser_extensions': set()}
+    iocs = {'urls': set(), 'ips': set(), 'fqdns': set(), 'hashes': set(), 'browser_extensions': set()}
 
     try:
         hashes = set(iocextract.extract_hashes(text))
         iocs['hashes'] = {h for h in hashes if len(h) in [32, 40, 64, 128]}
-        browser_extensions = set(EXT_ID_PATTERN.findall(text or ""))
-        iocs['browser_extensions'] = browser_extensions
+        iocs['browser_extensions'] = set(EXTENSION_ID_PATTERN.findall(text or ""))
 
-        text = extract_lines_with_defang_markers(text)
-        text = text.replace("hxxp", "http").replace("[://]", "://")
-        urls = set(iocextract.extract_urls(text, refang=True))
+        defanged_lines = "\n".join(line for line in text.splitlines() if "[.]" in line or "[://]" in line)
+        refanged_text = defanged_lines.replace("hxxp", "http").replace("[://]", "://")
+        extracted_urls = set(iocextract.extract_urls(refanged_text, refang=True))
 
-        domains = {re.sub(":.*", "", u.replace("http:","")) for u in urls if not is_valid_url(u)}
-        domains = {d for d in domains if not is_ipv4_strict(d)}
+        non_url_domains = {re.sub(":.*", "", u.replace("http:", "")) for u in extracted_urls if not is_valid_url(u)}
+        non_url_domains = {d for d in non_url_domains if not is_global_ipv4(d)}
 
-        urls = {u for u in urls if is_valid_url(u)}
-        iocs['urls'] = {u for u in urls if is_suspicious_url(u)}
+        valid_urls = {u for u in extracted_urls if is_valid_url(u)}
+        iocs['urls'] = {u for u in valid_urls if is_suspicious_url(u)}
 
-        # Extract IPv4 addresses
-        ips = set(iocextract.extract_ipv4s(text, refang=True))
+        ip_addresses = set(iocextract.extract_ipv4s(refanged_text, refang=True))
 
-
-        # Extract domains from URLs and standalone domains
-        # First extract domains from URLs we found
-        for url in urls:
+        domains = set(non_url_domains)
+        for url in valid_urls:
             try:
                 if '://' in url:
-                    # Simple ip address extraction from URL
                     if re.match(r'\d{1,3}(\.\d{1,3}){3}', url):
-                        ip_part = re.match(r'\d{1,3}(\.\d{1,3}){3}', url).group(0)
-                        if is_ipv4_strict(ip_part):
-                            ips.add(ip_part)
+                        ip_match = re.match(r'\d{1,3}(\.\d{1,3}){3}', url)
+                        if ip_match and is_global_ipv4(ip_match.group(0)):
+                            ip_addresses.add(ip_match.group(0))
                     else:
                         domain_part = url.split('://')[1].split('/')[0].split(':')[0]
                         if is_suspicious_domain(domain_part):
                             domains.add(domain_part)
-
             except:
                 continue
 
         iocs['fqdns'] = {d for d in domains if is_suspicious_domain(d)}
-        iocs['ips'] = {i for i in ips if is_ipv4_strict(i)}
+        iocs['ips'] = {ip for ip in ip_addresses if is_global_ipv4(ip)}
 
     except Exception as e:
         logger.warning(f"Error extracting IOCs: {e}")
-        # Fallback to empty sets if extraction fails
 
     return iocs
 
@@ -187,7 +166,7 @@ def create_misp_event_object(article: Dict, event_info: str, iocs: Dict[str, Set
         event.date = to_yyyy_mm_dd(article.get('date', ''))
         event.add_attribute(type="url", value=article.get('url', ''), category='External analysis', to_ids=False)
         for ioc_type, ioc_set in iocs.items():
-            for ioc in ioc_set:
+            for ioc_value in ioc_set:
                 if ioc_type == 'urls':
                     attr_type = 'url'
                 elif ioc_type == 'ips':
@@ -195,27 +174,23 @@ def create_misp_event_object(article: Dict, event_info: str, iocs: Dict[str, Set
                 elif ioc_type == 'fqdns':
                     attr_type = 'hostname'
                 elif ioc_type == 'hashes':
-                    # Determine hash type by length
-                    if len(ioc) == 32:
-                        attr_type = 'md5'
-                    elif len(ioc) == 40:
-                        attr_type = 'sha1'
-                    elif len(ioc) == 64:
-                        attr_type = 'sha256'
-                    elif len(ioc) == 128:
-                        attr_type = 'sha512'
-                    else:
+                    hash_types = {32: 'md5', 40: 'sha1', 64: 'sha256', 128: 'sha512'}
+                    attr_type = hash_types.get(len(ioc_value))
+                    if not attr_type:
                         continue
                 elif ioc_type == 'browser_extensions':
-                    event.add_attribute(type='chrome-extension-id', value=ioc, category='Payload installation', to_ids=True)
-                    logger.info(f"Added browser extension ID: {ioc}")
+                    try:
+                        event.add_attribute(type='chrome-extension-id', value=ioc_value, category='Payload installation', to_ids=True)
+                        logger.info(f"Added browser extension ID: {ioc_value}")
+                    except Exception as e:
+                        logger.warning(f"Failed to add browser extension {ioc_value}: {e}")
                     continue
                 else:
                     continue
                 try:
-                    event.add_attribute(type=attr_type, value=ioc, category='Network activity', to_ids=True)
+                    event.add_attribute(type=attr_type, value=ioc_value, category='Network activity', to_ids=True)
                 except Exception as e:
-                    logger.warning(f"Failed to add attribute {ioc} of type {attr_type}: {e}")
+                    logger.warning(f"Failed to add attribute {ioc_value} of type {attr_type}: {e}")
         event.add_attribute(type="comment", value=article.get('content', ''), category='Other', to_ids=False)
 
         # TODO PoC for AI analysis summary
