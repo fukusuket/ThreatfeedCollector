@@ -62,7 +62,8 @@ def is_recent_article(date_str: str, cutoff_date: datetime) -> bool:
         if article_date.tzinfo:
             article_date = article_date.replace(tzinfo=None)
         return article_date >= cutoff_date
-    except:
+    except Exception as e:
+        logger.warning(f"Failed to parse date '{date_str}': {e}")
         return True
 
 
