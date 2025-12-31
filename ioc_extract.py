@@ -287,8 +287,8 @@ def _add_ai_iocs_from_summary(event: MISPEvent, ai_summary: str) -> None:
             value = row.get("value", "").strip("`'\"")
             if row["kind"] == "command":
                 obj = MISPObject(name="command-line")
+                obj.add_attribute("command_line", value)
                 obj.comment = row.get("context", "")
-                obj.add_attribute("command-line", value)
                 event.add_object(obj)
             elif row["kind"] == "file":
                 event.add_attribute(category="Persistence mechanism", type="filename", value=value, comment=comment)
