@@ -61,33 +61,62 @@ def test_fetch_url_content_success(monkeypatch):
     response.text = "<html><body>hello</body></html>"
     response.raise_for_status.return_value = None
     monkeypatch.setattr(ioc_collect.requests, "get", MagicMock(return_value=response))
-    monkeypatch.setattr(ioc_collect, "BeautifulSoup", MagicMock(return_value=MagicMock(get_text=MagicMock(return_value="hello"))))
+    monkeypatch.setattr(
+        ioc_collect,
+        "BeautifulSoup",
+        MagicMock(return_value=MagicMock(get_text=MagicMock(return_value="hello"))),
+    )
     assert ioc_collect.fetch_url_content("http://example.com") == "hello"
 
 
 def test_fetch_url_content_handles_errors(monkeypatch):
-    monkeypatch.setattr(ioc_collect.requests, "get", MagicMock(side_effect=Exception("boom")))
+    monkeypatch.setattr(
+        ioc_collect.requests, "get", MagicMock(side_effect=Exception("boom"))
+    )
     assert ioc_collect.fetch_url_content("http://bad") == ""
     assert ioc_collect.fetch_url_content("") == ""
 
 
 def test_process_feed_builds_articles(monkeypatch):
-    entry = {"published": "2024-01-02", "title": "t", "link": "http://x", "summary": "<p>sum</p>"}
+    entry = {
+        "published": "2024-01-02",
+        "title": "t",
+        "link": "http://x",
+        "summary": "<p>sum</p>",
+    }
     feed = SimpleNamespace(entries=[entry])
     response = MagicMock(content=b"data", raise_for_status=MagicMock())
 
     monkeypatch.setattr(ioc_collect.requests, "get", MagicMock(return_value=response))
     monkeypatch.setattr(ioc_collect.feedparser, "parse", MagicMock(return_value=feed))
     monkeypatch.setattr(ioc_collect, "is_recent_article", MagicMock(return_value=True))
-    monkeypatch.setattr(ioc_collect, "BeautifulSoup", MagicMock(return_value=MagicMock(get_text=MagicMock(return_value="sum"))))
+    monkeypatch.setattr(
+        ioc_collect,
+        "BeautifulSoup",
+        MagicMock(return_value=MagicMock(get_text=MagicMock(return_value="sum"))),
+    )
 
-    result = ioc_collect.process_feed("vendor", "http://feed", ioc_collect.datetime.now())
-    assert result == [{"title": "t", "date": "2024-01-02", "url": "http://x", "content": "sum", "vendor": "vendor"}]
+    result = ioc_collect.process_feed(
+        "vendor", "http://feed", ioc_collect.datetime.now()
+    )
+    assert result == [
+        {
+            "title": "t",
+            "date": "2024-01-02",
+            "url": "http://x",
+            "content": "sum",
+            "vendor": "vendor",
+        }
+    ]
 
 
 def test_process_feed_handles_failure(monkeypatch):
-    monkeypatch.setattr(ioc_collect.requests, "get", MagicMock(side_effect=Exception("boom")))
-    assert ioc_collect.process_feed("v", "http://feed", ioc_collect.datetime.now()) == []
+    monkeypatch.setattr(
+        ioc_collect.requests, "get", MagicMock(side_effect=Exception("boom"))
+    )
+    assert (
+        ioc_collect.process_feed("v", "http://feed", ioc_collect.datetime.now()) == []
+    )
 
 
 def test_fetch_full_content_crawl_links(monkeypatch):
@@ -117,7 +146,9 @@ def test_fetch_full_content_crawl_links(monkeypatch):
 
     monkeypatch.setattr(ioc_collect.requests, "get", MagicMock(side_effect=fake_get))
     monkeypatch.setattr(ioc_collect, "BeautifulSoup", MagicMock(side_effect=soup_for))
-    monkeypatch.setattr(ioc_collect, "strip_scripts_and_get_text", lambda s: s.get_text())
+    monkeypatch.setattr(
+        ioc_collect, "strip_scripts_and_get_text", lambda s: s.get_text()
+    )
     monkeypatch.setattr(ioc_collect, "to_yyyy_mm_dd", lambda d: "2024-01-01")
 
     article = {"url": "http://main", "date": "2024-01-01", "vendor": "v", "title": "T"}
@@ -129,7 +160,9 @@ def test_fetch_full_content_crawl_links(monkeypatch):
 
 
 def test_fetch_full_content_handles_errors(monkeypatch):
-    monkeypatch.setattr(ioc_collect.requests, "get", MagicMock(side_effect=Exception("boom")))
+    monkeypatch.setattr(
+        ioc_collect.requests, "get", MagicMock(side_effect=Exception("boom"))
+    )
     assert ioc_collect.fetch_full_content({"url": "http://x"}) == []
 
 
@@ -144,7 +177,9 @@ def test_fetch_full_content_skips_common_domains(monkeypatch):
     soup.title = MagicMock(string="Main")
     soup.get_text.return_value = "main"
     monkeypatch.setattr(ioc_collect, "BeautifulSoup", MagicMock(return_value=soup))
-    monkeypatch.setattr(ioc_collect, "strip_scripts_and_get_text", lambda s: s.get_text())
+    monkeypatch.setattr(
+        ioc_collect, "strip_scripts_and_get_text", lambda s: s.get_text()
+    )
 
     article = {"url": "http://main", "date": "2024-01-01", "vendor": "v", "title": "T"}
     result = ioc_collect.fetch_full_content(article, crawl_links=True)
@@ -154,30 +189,62 @@ def test_fetch_full_content_skips_common_domains(monkeypatch):
 def test_add_event_to_misp_skips_existing(monkeypatch):
     misp = MagicMock()
     misp.search.side_effect = [[1], []]  # first call finds event by title
-    assert ioc_collect.add_event_to_misp({"title": "t", "vendor": "v", "url": "u"}, {"urls": set()}, misp) is False
+    assert (
+        ioc_collect.add_event_to_misp(
+            {"title": "t", "vendor": "v", "url": "u"}, {"urls": set()}, misp
+        )
+        is False
+    )
 
 
 def test_add_event_to_misp_creates(monkeypatch):
     misp = MagicMock()
     misp.search.side_effect = [[], []]
     event_obj = object()
-    monkeypatch.setattr(ioc_collect, "create_misp_event_object", MagicMock(return_value=event_obj))
-    assert ioc_collect.add_event_to_misp({"title": "t", "vendor": "v", "url": "u"}, {"urls": {"u"}}, misp) is True
+    monkeypatch.setattr(
+        ioc_collect, "create_misp_event_object", MagicMock(return_value=event_obj)
+    )
+    assert (
+        ioc_collect.add_event_to_misp(
+            {"title": "t", "vendor": "v", "url": "u"}, {"urls": {"u"}}, misp
+        )
+        is True
+    )
     misp.add_event.assert_called_once_with(event_obj, pythonify=True)
 
 
 def test_process_article_skips_existing_attr(monkeypatch):
     misp = MagicMock()
     misp.search.side_effect = [["hit"], []]  # first URL check hits
-    monkeypatch.setattr(ioc_collect, "fetch_full_content", MagicMock(return_value=[{"url": "u", "content": ""}]))
+    monkeypatch.setattr(
+        ioc_collect,
+        "fetch_full_content",
+        MagicMock(return_value=[{"url": "u", "content": ""}]),
+    )
     assert ioc_collect.process_article(misp, {"url": "u", "title": "t"}, "v") is False
 
 
 def test_process_article_creates_when_iocs(monkeypatch):
     misp = MagicMock()
     misp.search.return_value = []
-    monkeypatch.setattr(ioc_collect, "fetch_full_content", MagicMock(return_value=[{"url": "u", "content": "body"}]))
-    monkeypatch.setattr(ioc_collect, "extract_iocs_from_content", MagicMock(return_value={"urls": {"a", "b"}, "ips": {"c"}, "hashes": set(), "fqdns": set(), "browser_extensions": set()}))
+    monkeypatch.setattr(
+        ioc_collect,
+        "fetch_full_content",
+        MagicMock(return_value=[{"url": "u", "content": "body"}]),
+    )
+    monkeypatch.setattr(
+        ioc_collect,
+        "extract_iocs_from_content",
+        MagicMock(
+            return_value={
+                "urls": {"a", "b"},
+                "ips": {"c"},
+                "hashes": set(),
+                "fqdns": set(),
+                "browser_extensions": set(),
+            }
+        ),
+    )
     monkeypatch.setattr(ioc_collect, "add_event_to_misp", MagicMock(return_value=True))
     assert ioc_collect.process_article(misp, {"url": "u", "title": "t"}, "v") is True
 
@@ -185,8 +252,24 @@ def test_process_article_creates_when_iocs(monkeypatch):
 def test_process_article_needs_enough_iocs(monkeypatch):
     misp = MagicMock()
     misp.search.return_value = []
-    monkeypatch.setattr(ioc_collect, "fetch_full_content", MagicMock(return_value=[{"url": "u", "content": "body"}]))
-    monkeypatch.setattr(ioc_collect, "extract_iocs_from_content", MagicMock(return_value={"urls": {"a"}, "ips": set(), "hashes": {"h"}, "fqdns": set(), "browser_extensions": set()}))
+    monkeypatch.setattr(
+        ioc_collect,
+        "fetch_full_content",
+        MagicMock(return_value=[{"url": "u", "content": "body"}]),
+    )
+    monkeypatch.setattr(
+        ioc_collect,
+        "extract_iocs_from_content",
+        MagicMock(
+            return_value={
+                "urls": {"a"},
+                "ips": set(),
+                "hashes": {"h"},
+                "fqdns": set(),
+                "browser_extensions": set(),
+            }
+        ),
+    )
     assert ioc_collect.process_article(misp, {"url": "u", "title": "t"}, "v") is False
 
 
@@ -196,7 +279,9 @@ def test_save_stats_writes_csv(monkeypatch, tmp_path):
         date="2024-01-02",
         attributes=[
             SimpleNamespace(category="Other", type="text", value="x"),
-            SimpleNamespace(category="External analysis", type="url", value="http://blog"),
+            SimpleNamespace(
+                category="External analysis", type="url", value="http://blog"
+            ),
         ],
     )
     misp = MagicMock()
@@ -207,7 +292,15 @@ def test_save_stats_writes_csv(monkeypatch, tmp_path):
     ioc_collect.save_stats(misp)
 
     rows = list(csv.DictReader(Path(ioc_collect.OUTPUT_CSV).read_text().splitlines()))
-    assert rows == [{"date": "2024-01-02", "vendor": "v", "iocs": "1", "title": "title", "blog url": "http://blog"}]
+    assert rows == [
+        {
+            "date": "2024-01-02",
+            "vendor": "v",
+            "iocs": "1",
+            "title": "title",
+            "blog url": "http://blog",
+        }
+    ]
 
 
 def test_save_stats_handles_error(monkeypatch, caplog):
@@ -237,11 +330,24 @@ def test_main_happy_path(monkeypatch, tmp_path):
     feeds.write_text("vendor,feed,blog,crawl\nv,http://feed,http://blog,False\n")
     monkeypatch.setattr(ioc_collect, "RSS_FEEDS_CSV", str(feeds))
 
-    monkeypatch.setattr(ioc_collect, "process_feed", MagicMock(return_value=[{"title": "t", "date": "2024-01-01", "url": "u", "content": "c", "vendor": "v"}]))
+    monkeypatch.setattr(
+        ioc_collect,
+        "process_feed",
+        MagicMock(
+            return_value=[
+                {
+                    "title": "t",
+                    "date": "2024-01-01",
+                    "url": "u",
+                    "content": "c",
+                    "vendor": "v",
+                }
+            ]
+        ),
+    )
     monkeypatch.setattr(ioc_collect, "process_article", MagicMock())
     monkeypatch.setattr(ioc_collect, "save_stats", MagicMock())
 
     ioc_collect.main()
     ioc_collect.process_article.assert_called()
     ioc_collect.save_stats.assert_called()
-

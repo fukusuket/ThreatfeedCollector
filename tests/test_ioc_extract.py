@@ -56,7 +56,6 @@ def test_is_suspicious_url_requires_slash_or_scheme():
     assert ioc_extract.is_suspicious_url("example.com") is False
 
 
-
 def test_is_valid_url_rejects_redacted_and_suspicious_extensions():
     assert ioc_extract.is_valid_url("https://example.com/redacted") is False
     assert ioc_extract.is_valid_url("https://example.com/file.exe") is False
@@ -82,7 +81,9 @@ def test_to_yyyy_mm_dd_parses_valid_date():
 
 def test_to_yyyy_mm_dd_fallbacks_on_error(monkeypatch):
     fixed = datetime(2024, 5, 6)
-    monkeypatch.setattr(ioc_extract, "datetime", MagicMock(utcnow=MagicMock(return_value=fixed)))
+    monkeypatch.setattr(
+        ioc_extract, "datetime", MagicMock(utcnow=MagicMock(return_value=fixed))
+    )
     assert ioc_extract.to_yyyy_mm_dd("not-a-date") == "2024-05-06"
 
 
@@ -93,11 +94,15 @@ def test_extract_iocs_filters_warning_and_common(monkeypatch, reset_warning_list
     deadbeefdeadbeefdeadbeefdeadbeef
     extension id: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
     """
-    monkeypatch.setattr(ioc_extract, "iocextract", types.SimpleNamespace(
-        extract_hashes=lambda t: ["deadbeefdeadbeefdeadbeefdeadbeef"],
-        extract_urls=lambda t, refang=True: ["http://malicious.example/path"],
-        extract_ipv4s=lambda t, refang=True: ["8.8.8.8"],
-    ))
+    monkeypatch.setattr(
+        ioc_extract,
+        "iocextract",
+        types.SimpleNamespace(
+            extract_hashes=lambda t: ["deadbeefdeadbeefdeadbeefdeadbeef"],
+            extract_urls=lambda t, refang=True: ["http://malicious.example/path"],
+            extract_ipv4s=lambda t, refang=True: ["8.8.8.8"],
+        ),
+    )
     reset_warning_lists.search.return_value = None
     result = ioc_extract.extract_iocs_from_content(text)
     assert result["hashes"] == {"deadbeefdeadbeefdeadbeefdeadbeef"}
@@ -120,7 +125,9 @@ def test_extract_iocs_ignores_empty():
 def test_create_misp_event_object_adds_attributes(monkeypatch):
     mock_event = MagicMock()
     monkeypatch.setattr(ioc_extract, "MISPEvent", MagicMock(return_value=mock_event))
-    monkeypatch.setattr(ioc_extract, "to_yyyy_mm_dd", MagicMock(return_value="2024-02-03"))
+    monkeypatch.setattr(
+        ioc_extract, "to_yyyy_mm_dd", MagicMock(return_value="2024-02-03")
+    )
 
     iocs = {
         "urls": {"http://evil.test"},
@@ -134,13 +141,34 @@ def test_create_misp_event_object_adds_attributes(monkeypatch):
     event = ioc_extract.create_misp_event_object(article, "info", iocs)
 
     assert event is mock_event
-    mock_event.add_attribute.assert_any_call(type="url", value="http://source", category="External analysis", to_ids=False)
-    mock_event.add_attribute.assert_any_call(type="url", value="http://evil.test", category="Network activity", to_ids=True)
-    mock_event.add_attribute.assert_any_call(type="ip-dst", value="203.0.113.5", category="Network activity", to_ids=True)
-    mock_event.add_attribute.assert_any_call(type="hostname", value="evil.test", category="Network activity", to_ids=True)
-    mock_event.add_attribute.assert_any_call(type="md5", value="deadbeefdeadbeefdeadbeefdeadbeef", category="Network activity", to_ids=True)
-    mock_event.add_attribute.assert_any_call(type="sha1", value="b" * 40, category="Network activity", to_ids=True)
-    mock_event.add_attribute.assert_any_call(type="chrome-extension-id", value="a" * 32, category="Payload installation", to_ids=True)
-    mock_event.add_attribute.assert_any_call(type="comment", value="body", category="Other", to_ids=False)
+    mock_event.add_attribute.assert_any_call(
+        type="url", value="http://source", category="External analysis", to_ids=False
+    )
+    mock_event.add_attribute.assert_any_call(
+        type="url", value="http://evil.test", category="Network activity", to_ids=True
+    )
+    mock_event.add_attribute.assert_any_call(
+        type="ip-dst", value="203.0.113.5", category="Network activity", to_ids=True
+    )
+    mock_event.add_attribute.assert_any_call(
+        type="hostname", value="evil.test", category="Network activity", to_ids=True
+    )
+    mock_event.add_attribute.assert_any_call(
+        type="md5",
+        value="deadbeefdeadbeefdeadbeefdeadbeef",
+        category="Network activity",
+        to_ids=True,
+    )
+    mock_event.add_attribute.assert_any_call(
+        type="sha1", value="b" * 40, category="Network activity", to_ids=True
+    )
+    mock_event.add_attribute.assert_any_call(
+        type="chrome-extension-id",
+        value="a" * 32,
+        category="Payload installation",
+        to_ids=True,
+    )
+    mock_event.add_attribute.assert_any_call(
+        type="comment", value="body", category="Other", to_ids=False
+    )
     assert mock_event.add_attribute.call_count == 8
-
