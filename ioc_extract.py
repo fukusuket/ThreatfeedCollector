@@ -291,13 +291,13 @@ def _add_ai_iocs_from_summary(event: MISPEvent, ai_summary: str) -> None:
                 obj.add_attribute("command-line", value)
                 event.add_object(obj)
             elif row["kind"] == "file":
-                event.add_attribute(category="Persistence mechanism", type="file", value=value, comment=comment)
+                event.add_attribute(category="Persistence mechanism", type="filename", value=value, comment=comment)
             elif row["kind"] == "registry":
                 event.add_attribute(category="Persistence mechanism", type="regkey", value=value, comment=comment)
             elif row["kind"] == "email":
                 event.add_attribute(category="Payload delivery", type="email-src", value=value, comment=comment)
         except Exception as e:
-            logger.warning(f"Failed to add AI IoC row {row}: {e}")
+            logger.warning(f"Failed to add AI summary iocs {row}: {e}")
 
 
 def create_misp_event_object(article: Dict, event_info: str, iocs: Dict[str, Set[str]]) -> Optional[MISPEvent]:
