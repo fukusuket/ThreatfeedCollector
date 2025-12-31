@@ -1,0 +1,27 @@
+# One domain per line, lower/upper case allowed, leading/trailing spaces are trimmed
+# Lines starting with # are comments.
+google.com
+microsoft.com
+apple.com
+amazon.com
+github.com
+stackoverflow.com
+nist.gov
+x.com
+feedburner.com
+twitter.com
+facebook.com
+linkedin.com
+instagram.com
+youtube.com
+pastebin.com
+infosec.exchange
+virustotal.com
+urlvoid.com
+hybrid-analysis.com
+any.run
+joesandbox.com
+bleepingcomputer.com
+thehackernews
+web3adspanels.com
+

@@ -7,6 +7,7 @@ from pymisp import MISPEvent
 from dateutil import parser
 import iocextract
 from pymispwarninglists import WarningLists
+from pathlib import Path
 
 from thunt_advisor import analyze_threat_article
 
@@ -15,6 +16,9 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+BASE_DIR = Path(__file__).resolve().parent
+CONFIG_DIR = BASE_DIR / "config"
 
 URL_REGEX = re.compile(
     r"^(?:http|https|ftp)://"
@@ -30,75 +34,28 @@ URL_REGEX = re.compile(
 
 EXTENSION_ID_PATTERN = re.compile(r"[a-p]{32}")
 
-COMMON_DOMAINS = {
-    "google.com",
-    "microsoft.com",
-    "apple.com",
-    "amazon.com",
-    "github.com",
-    "stackoverflow.com",
-    "nist.gov",
-    "x.com",
-    "feedburner.com",
-    "twitter.com",
-    "facebook.com",
-    "linkedin.com",
-    "instagram.com",
-    "youtube.com",
-    "pastebin.com",
-    "infosec.exchange",
-    "virustotal.com",
-    "urlvoid.com",
-    "hybrid-analysis.com",
-    "any.run",
-    "joesandbox.com",
-    "bleepingcomputer.com",
-    "thehackernews",
-    "web3adspanels.com",
-}
+def _load_set_from_file(path: Path) -> Set[str]:
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            items = {
+                line.strip().lower()
+                for line in f
+                if line.strip() and not line.lstrip().startswith("#")
+            }
+        if not items:
+            logger.warning(f"No entries found in {path}, falling back to defaults")
+            return set()
+        return items
+    except FileNotFoundError:
+        logger.warning(f"Config file not found: {path}, using defaults")
+        return set()
+    except Exception as e:
+        logger.warning(f"Failed to load config {path}: {e}")
+        return set()
 
-SUSPICIOUS_EXTENSIONS = {
-    ".exe",
-    ".bat",
-    ".cmd",
-    ".com",
-    ".scr",
-    ".pif",
-    ".vbs",
-    ".js",
-    ".jar",
-    ".zip",
-    ".rar",
-    ".7z",
-    ".tar",
-    ".gz",
-    ".bz2",
-    ".msi",
-    ".deb",
-    ".rpm",
-    ".dmg",
-    ".pkg",
-    "pdf",
-    ".doc",
-    ".docx",
-    ".xls",
-    ".xlsx",
-    ".ppt",
-    ".pptx",
-    ".rtf",
-    ".txt",
-    ".xml",
-    ".json",
-    ".php",
-    ".asp",
-    ".aspx",
-    ".jsp",
-    ".cgi",
-    ".pl",
-    ".py",
-    ".rb",
-}
 
+COMMON_DOMAINS = _load_set_from_file(CONFIG_DIR / "common_domains.txt")
+SUSPICIOUS_EXTENSIONS = _load_set_from_file( CONFIG_DIR / "suspicious_extensions.txt")
 WARNING_LISTS = WarningLists(slow_search=True)
 
 
