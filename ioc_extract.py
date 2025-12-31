@@ -186,15 +186,6 @@ def trim_markdown_fence(text: str) -> str:
 
 
 def extract_iocs_from_content(text: str) -> Dict[str, Set[str]]:
-    if not text:
-        return {
-            "urls": set(),
-            "ips": set(),
-            "fqdns": set(),
-            "hashes": set(),
-            "browser_extensions": set(),
-        }
-
     iocs = {
         "urls": set(),
         "ips": set(),
@@ -202,6 +193,8 @@ def extract_iocs_from_content(text: str) -> Dict[str, Set[str]]:
         "hashes": set(),
         "browser_extensions": set(),
     }
+    if not text:
+        return iocs
 
     try:
         hashes = set(iocextract.extract_hashes(text))
