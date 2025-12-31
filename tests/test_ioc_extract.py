@@ -19,7 +19,6 @@ def reset_warning_lists(monkeypatch):
     return dummy
 
 
-
 def test_is_global_ipv4_accepts_global_and_not_in_warning_list(reset_warning_lists):
     reset_warning_lists.search.return_value = None
     assert ioc_extract.is_global_ipv4("8.8.8.8") is True
