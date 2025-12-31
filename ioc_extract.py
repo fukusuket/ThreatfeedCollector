@@ -264,7 +264,10 @@ def create_misp_event_object(
         ai_summary = analyze_threat_article(content=article.get('content', ''), title=article.get('title', ''), url=article.get('url', ''))
         event.add_event_report(name="[en]_" + event_info, content=trim_markdown_fence(ai_summary), distribution=0)
 
-        ai_summary_jp = analyze_threat_article(content=ai_summary, prompt_path="/shared/threatfeed-collector/prompt-translate.md")
+        ai_summary_jp = analyze_threat_article(
+            content=ai_summary,
+            prompt_path=str(Path(__file__).resolve().parent / "config" / "prompt-translate.md"),
+        )
         event.add_event_report(name="[jp]_" + event_info, content=trim_markdown_fence(ai_summary_jp), distribution=0)
 
         logger.info("Created MISP Event object.")

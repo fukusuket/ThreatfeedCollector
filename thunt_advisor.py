@@ -25,7 +25,7 @@ def analyze_threat_article(
     title: str = "",
     url: str = "",
     model: str = "gpt-5.2",
-    prompt_path: str = "/shared/threatfeed-collector/prompt-hunt.md",
+    prompt_path: str = str(Path(__file__).resolve().parent / "config" / "prompt-hunt.md"),
     additional_pre_context: str = "",
 ) -> str:
     try:
