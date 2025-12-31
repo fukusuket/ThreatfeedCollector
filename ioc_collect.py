@@ -1,8 +1,3 @@
-#!/usr/bin/env python3
-"""
-ThreatFeed Collector - Functional approach for IoC extraction to MISP using iocextract
-"""
-
 import os
 import csv
 import re
