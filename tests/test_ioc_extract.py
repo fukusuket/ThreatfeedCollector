@@ -247,7 +247,7 @@ def test_create_misp_event_object_adds_iocs_from_table(monkeypatch):
     mock_event.add_object.assert_called_once_with(obj)
     mock_event.add_attribute.assert_any_call(
         category="Persistence mechanism",
-        type="file",
+        type="filename",
         value="C:\\evil\\a.exe",
         comment="dropper",
     )
@@ -256,5 +256,36 @@ def test_create_misp_event_object_adds_iocs_from_table(monkeypatch):
     )
     mock_event.add_event_report.assert_any_call(
         name="[jp]_info", content="translated", distribution=0
+    )
+
+
+def test_add_ai_iocs_from_summary_trims_quotes(monkeypatch):
+    event = MagicMock()
+    obj = MagicMock()
+    monkeypatch.setattr(ioc_extract, "MISPObject", MagicMock(return_value=obj))
+    ai_summary = """### IoCs
+    | Type | Value | Context |
+    |---|---|---|
+    | File path | `'\"C:\\evil\\quoted.exe\"'` | dropper |
+    | Command or process | `\"powershell -enc aaa\"` | persistence |
+    | Email | '"attacker@example.com"' | sender |
+    """
+
+    ioc_extract._add_ai_iocs_from_summary(event, ai_summary)
+
+    obj.add_attribute.assert_called_once_with("command-line", "powershell -enc aaa")
+    assert obj.comment == "persistence"
+    event.add_object.assert_called_once_with(obj)
+    event.add_attribute.assert_any_call(
+        category="Persistence mechanism",
+        type="filename",
+        value="C:\\evil\\quoted.exe",
+        comment="dropper",
+    )
+    event.add_attribute.assert_any_call(
+        category="Payload delivery",
+        type="email-src",
+        value="attacker@example.com",
+        comment="sender",
     )
 

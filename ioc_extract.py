@@ -283,8 +283,8 @@ def _add_ai_iocs_from_summary(event: MISPEvent, ai_summary: str) -> None:
     ioc_rows = _parse_ioc_rows_from_markdown(ioc_section)
     for row in ioc_rows:
         try:
-            comment = row.get("context", "")
-            value = row.get("value", "")
+            comment = row.get("context", "").strip("`'\"")
+            value = row.get("value", "").strip("`'\"")
             if row["kind"] == "command":
                 obj = MISPObject(name="command-line")
                 obj.comment = row.get("context", "")
