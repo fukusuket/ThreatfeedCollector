@@ -53,7 +53,7 @@ These values are read by the app at runtime; no shell exports are required.
 
 ## RSS Feeds Configuration
 
-Create a `rss_feeds.csv` file with your threat intelligence feeds:
+Create a `config/rss_feeds.csv` file with your threat intelligence feeds:
 
 ```csv
 Vendor, RSS Feed URL, Blog URL

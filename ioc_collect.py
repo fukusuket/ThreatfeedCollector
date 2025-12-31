@@ -40,15 +40,8 @@ if Path("/shared/authkey.txt").exists():
     MISP_KEY = Path("/shared/authkey.txt").read_text().strip()
 else:
     MISP_KEY = os.getenv("MISP_KEY")
-
-RSS_FEEDS_CSV = (
-    "/shared/threatfeed-collector/rss_feeds.csv"
-    if Path("/shared/threatfeed-collector/rss_feeds.csv").exists()
-    else "rss_feeds.csv"
-)
-OUTPUT_CSV = os.getenv(
-    "OUTPUT_CSV", f"ioc_stats_{datetime.now().strftime('%Y%m%d')}.csv"
-)
+RSS_FEEDS_CSV = str(Path(__file__).resolve().parent / "config" / "rss_feeds.csv")
+OUTPUT_CSV = f"ioc_stats_{datetime.now().strftime('%Y%m%d')}.csv"
 DAYS_BACK = int(os.getenv("DAYS_BACK", "7"))
 
 Article = Dict[str, str]
