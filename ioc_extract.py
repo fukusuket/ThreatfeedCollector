@@ -318,7 +318,7 @@ def create_misp_event_object(
         # ai_summary_jp = analyze_threat_article(content=ai_summary, prompt_path="/shared/threatfeed-collector/prompt-translate.md")
         # event.add_event_report(name="[jp]_" + event_info, content=trim_markdown_fence(ai_summary_jp), distribution=0)
 
-        logger.info(f"Created MISP Event object.")
+        logger.info("Created MISP Event object.")
         return event
 
     except Exception as e:
