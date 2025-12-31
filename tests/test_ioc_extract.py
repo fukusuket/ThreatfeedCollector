@@ -128,6 +128,12 @@ def test_create_misp_event_object_adds_attributes(monkeypatch):
     monkeypatch.setattr(
         ioc_extract, "to_yyyy_mm_dd", MagicMock(return_value="2024-02-03")
     )
+    monkeypatch.setattr(
+        ioc_extract,
+        "analyze_threat_article",
+        MagicMock(side_effect=["### IoCs\n| Type | Value | Context |", "ja"]),
+    )
+    monkeypatch.setattr(ioc_extract, "MISPObject", MagicMock())
 
     iocs = {
         "urls": {"http://evil.test"},
@@ -172,3 +178,83 @@ def test_create_misp_event_object_adds_attributes(monkeypatch):
         type="comment", value="body", category="Other", to_ids=False
     )
     assert mock_event.add_attribute.call_count == 8
+
+
+def test_trim_to_ioc_section_cuts_before_heading():
+    text = """```markdown
+    ### Title
+    intro
+
+    ### IoCs
+    | Type | Value | Context |
+    |---|---|---|
+    | File path | C:\\tmp\\evil.exe | dropper |
+    ```"""
+    trimmed = ioc_extract._trim_to_ioc_section(text)
+    assert trimmed.startswith("### IoCs")
+    assert "Title" not in trimmed
+
+
+def test_parse_ioc_rows_filters_and_maps():
+    markdown = """### IoCs
+    | Type | Value | Context |
+    |---|---|---|
+    | File path | C:\\tmp\\evil.exe | dropper |
+    | Command or process | powershell -enc aaa | persistence |
+    | Domain | example.com | skip |
+    """
+    rows = ioc_extract._parse_ioc_rows_from_markdown(markdown)
+    assert rows == [
+        {"kind": "file", "value": "C:\\tmp\\evil.exe", "context": "dropper"},
+        {
+            "kind": "command",
+            "value": "powershell -enc aaa",
+            "context": "persistence",
+        },
+    ]
+
+
+def test_create_misp_event_object_adds_iocs_from_table(monkeypatch):
+    mock_event = MagicMock()
+    monkeypatch.setattr(ioc_extract, "MISPEvent", MagicMock(return_value=mock_event))
+    monkeypatch.setattr(
+        ioc_extract, "to_yyyy_mm_dd", MagicMock(return_value="2024-02-03")
+    )
+    obj = MagicMock()
+    monkeypatch.setattr(ioc_extract, "MISPObject", MagicMock(return_value=obj))
+    ai_summary = """### Title
+    something
+    ### IoCs
+    | Type | Value | Context |
+    |---|---|---|
+    | File path | C:\\evil\\a.exe | dropper |
+    | Command or process | powershell.exe -enc aaa | persistence |
+    """
+    monkeypatch.setattr(
+        ioc_extract,
+        "analyze_threat_article",
+        MagicMock(side_effect=[ai_summary, "translated"]),
+    )
+
+    article = {"date": "ignored", "url": "http://source", "content": "body"}
+    iocs = {"urls": set(), "ips": set(), "fqdns": set(), "hashes": set(), "browser_extensions": set()}
+
+    event = ioc_extract.create_misp_event_object(article, "info", iocs)
+
+    assert event is mock_event
+    obj.add_attribute.assert_called_once_with("command-line", "C:\\evil\\a.exe")
+    assert obj.comment == "dropper"
+    mock_event.add_object.assert_called_once_with(obj)
+    mock_event.add_attribute.assert_any_call(
+        category="Persistence mechanism",
+        type="file",
+        value="powershell.exe -enc aaa",
+        comment="persistence",
+    )
+    mock_event.add_event_report.assert_any_call(
+        name="[en]_info", content=ioc_extract.trim_markdown_fence(ai_summary), distribution=0
+    )
+    mock_event.add_event_report.assert_any_call(
+        name="[jp]_info", content="translated", distribution=0
+    )
+

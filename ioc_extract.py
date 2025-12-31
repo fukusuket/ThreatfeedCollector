@@ -3,7 +3,7 @@ import re
 import logging
 from datetime import datetime
 from typing import Dict, Set, Optional
-from pymisp import MISPEvent
+from pymisp import MISPEvent, MISPObject
 from dateutil import parser
 import iocextract
 from pymispwarninglists import WarningLists
@@ -142,6 +142,41 @@ def trim_markdown_fence(text: str) -> str:
     return match.group(1).strip() if match else text.strip()
 
 
+def _trim_to_ioc_section(markdown_text: str) -> str:
+    content = trim_markdown_fence(markdown_text)
+    lines = content.splitlines()
+    start_idx = None
+    for idx, line in enumerate(lines):
+        if line.strip().lower().startswith("### ioc"):
+            start_idx = idx
+            break
+    if start_idx is None:
+        return ""
+    return "\n".join(lines[start_idx:]).strip()
+
+
+def _parse_ioc_rows_from_markdown(markdown_text: str) -> list[Dict[str, str]]:
+    rows = []
+    for line in markdown_text.splitlines():
+        if not line.strip().startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) < 3:
+            continue
+        if cells[0].lower() in {"type", "---"}:
+            continue
+        type_cell, value_cell, context_cell = cells[0], cells[1], cells[2]
+        type_lower = type_cell.lower()
+        if "file" in type_lower:
+            kind = "file"
+        elif "command" in type_lower or "process" in type_lower:
+            kind = "command"
+        else:
+            continue
+        rows.append({"kind": kind, "value": value_cell, "context": context_cell})
+    return rows
+
+
 def extract_iocs_from_content(text: str) -> Dict[str, Set[str]]:
     iocs = {
         "urls": set(),
@@ -201,21 +236,10 @@ def extract_iocs_from_content(text: str) -> Dict[str, Set[str]]:
     return iocs
 
 
-def create_misp_event_object(
-    article: Dict, event_info: str, iocs: Dict[str, Set[str]]
-) -> Optional[MISPEvent]:
-    try:
-        event = MISPEvent()
-        event.info = event_info
-        event.date = to_yyyy_mm_dd(article.get("date", ""))
-        event.add_attribute(
-            type="url",
-            value=article.get("url", ""),
-            category="External analysis",
-            to_ids=False,
-        )
-        for ioc_type, ioc_set in iocs.items():
-            for ioc_value in ioc_set:
+def _add_extracted_ioc_attributes(event: MISPEvent, iocs: Dict[str, Set[str]]) -> None:
+    for ioc_type, ioc_set in iocs.items():
+        for ioc_value in ioc_set:
+            try:
                 if ioc_type == "urls":
                     attr_type = "url"
                 elif ioc_type == "ips":
@@ -228,45 +252,70 @@ def create_misp_event_object(
                     if not attr_type:
                         continue
                 elif ioc_type == "browser_extensions":
-                    try:
-                        event.add_attribute(
-                            type="chrome-extension-id",
-                            value=ioc_value,
-                            category="Payload installation",
-                            to_ids=True,
-                        )
-                        logger.info(f"Added browser extension ID: {ioc_value}")
-                    except Exception as e:
-                        logger.warning(
-                            f"Failed to add browser extension {ioc_value}: {e}"
-                        )
+                    event.add_attribute(
+                        type="chrome-extension-id",
+                        value=ioc_value,
+                        category="Payload installation",
+                        to_ids=True,
+                    )
+                    logger.info(f"Added browser extension ID: {ioc_value}")
                     continue
                 else:
                     continue
-                try:
-                    event.add_attribute(
-                        type=attr_type,
-                        value=ioc_value,
-                        category="Network activity",
-                        to_ids=True,
-                    )
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to add attribute {ioc_value} of type {attr_type}: {e}"
-                    )
-        event.add_attribute(
-            type="comment",
-            value=article.get("content", ""),
-            category="Other",
-            to_ids=False,
-        )
+                event.add_attribute(
+                    type=attr_type,
+                    value=ioc_value,
+                    category="Network activity",
+                    to_ids=True,
+                )
+            except Exception as e:
+                logger.warning(f"Failed to add attribute for {ioc_type}={ioc_value}: {e}")
 
-        ai_summary = analyze_threat_article(content=article.get('content', ''), title=article.get('title', ''), url=article.get('url', ''))
-        event.add_event_report(name="[en]_" + event_info, content=trim_markdown_fence(ai_summary), distribution=0)
+
+def _add_ai_iocs_from_summary(event: MISPEvent, ai_summary: str) -> None:
+    ioc_section = _trim_to_ioc_section(ai_summary)
+    if not ioc_section:
+        return
+    ioc_rows = _parse_ioc_rows_from_markdown(ioc_section)
+    for row in ioc_rows:
+        try:
+            if row["kind"] == "file":
+                obj = MISPObject(name="command-line")
+                obj.comment = row.get("context", "")
+                obj.add_attribute("command-line", row.get("value", ""))
+                event.add_object(obj)
+            elif row["kind"] == "command":
+                event.add_attribute(
+                    category="Persistence mechanism",
+                    type="file",
+                    value=row.get("value", ""),
+                    comment=row.get("context", ""),
+                )
+        except Exception as e:
+            logger.warning(f"Failed to add AI IoC row {row}: {e}")
+
+
+
+def create_misp_event_object(article: Dict, event_info: str, iocs: Dict[str, Set[str]]) -> Optional[MISPEvent]:
+    try:
+        event = MISPEvent()
+        event.info = event_info
+        event.date = to_yyyy_mm_dd(article.get("date", ""))
+        event.add_attribute(type="url", value=article.get("url", ""), category="External analysis", to_ids=False)
+        event.add_attribute(type="comment", value=article.get("content", ""), category="Other", to_ids=False)
+        _add_extracted_ioc_attributes(event, iocs)
+
+        ai_summary_en = analyze_threat_article(
+            content=article.get("content", ""),
+            title=article.get("title", ""),
+            url=article.get("url", ""),
+        )
+        event.add_event_report(name="[en]_" + event_info, content=trim_markdown_fence(ai_summary_en), distribution=0)
+        _add_ai_iocs_from_summary(event, ai_summary_en)
 
         ai_summary_jp = analyze_threat_article(
-            content=ai_summary,
-            prompt_path=str(Path(__file__).resolve().parent / "config" / "prompt-translate.md"),
+            content=ai_summary_en,
+            prompt_path=str(Path(__file__).resolve().parent / "config" / "prompt-translate.md")
         )
         event.add_event_report(name="[jp]_" + event_info, content=trim_markdown_fence(ai_summary_jp), distribution=0)
 
