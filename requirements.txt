@@ -8,3 +8,4 @@ pymispwarninglists
 openai
 python-dotenv
 google-genai
+pytest
