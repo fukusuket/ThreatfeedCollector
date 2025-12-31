@@ -203,6 +203,14 @@ def add_event_to_misp(article: Article, iocs: Dict, misp: PyMISP) -> bool:
 
 def process_article(misp: PyMISP, article: Article, vendor: str, crawl_links: bool = False, crawl_same_domain: bool = False) -> bool:
     logger.info(f"Processing article: {article.get('title', '')[:100]}...")
+    try:
+        url = article.get('url', '')
+        existing_attrs = misp.search(controller="attributes", value=url, type="url", category="External analysis", pythonify=True)
+        if existing_attrs:
+            logger.info(f"External analysis URL already exists in MISP, skipping: {url}")
+            return False
+    except Exception as e:
+        logger.warning(f"Failed to check existing MISP attributes for {url}: {e}")
     articles = fetch_full_content(article, crawl_links=crawl_links, crawl_same_domain=crawl_same_domain)
     if not articles:
         return False
