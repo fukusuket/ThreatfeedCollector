@@ -29,17 +29,16 @@ logger = logging.getLogger(__name__)
 
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
-MISP_URL = os.getenv('MISP_URL')
-MISP_KEY = os.getenv('MISP_KEY')
+MISP_URL = os.getenv('MISP_URL', '')
+MISP_KEY = None
 if Path("/shared/authkey.txt").exists():
     MISP_KEY = Path("/shared/authkey.txt").read_text().strip()
-elif not MISP_KEY:
-    logger.error("MISP_KEY environment variable must be set")
-    exit(1)
+else:
+    MISP_KEY = os.getenv('MISP_KEY')
 
 RSS_FEEDS_CSV = "/shared/threatfeed-collector/rss_feeds.csv" if Path("/shared/threatfeed-collector/rss_feeds.csv").exists() else 'rss_feeds.csv'
 OUTPUT_CSV = os.getenv('OUTPUT_CSV', f'ioc_stats_{datetime.now().strftime("%Y%m%d")}.csv')
-DAYS_BACK = int(os.getenv('DAYS_BACK'))
+DAYS_BACK = int(os.getenv('DAYS_BACK', '7'))
 
 Article = Dict[str, str]
 
@@ -259,6 +258,9 @@ def main() -> None:
     logger.info("Starting ThreatFeed Collector with iocextract")
 
     try:
+        if not MISP_KEY:
+            logger.error("MISP_KEY environment variable must be set")
+            sys.exit(1)
         misp = PyMISP(MISP_URL, MISP_KEY, ssl=False)
         logger.info("MISP connection established")
     except Exception as e:
@@ -296,3 +298,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

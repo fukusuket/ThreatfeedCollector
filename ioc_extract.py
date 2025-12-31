@@ -60,6 +60,9 @@ def is_global_ipv4(ip_str: str) -> bool:
         return True
     except ipaddress.AddressValueError:
         return False
+    except Exception as e:
+        logger.debug(f"Failed to check global IPv4 for {ip_str}: {e}")
+        return False
 
 
 def is_suspicious_domain(domain: str) -> bool:
@@ -89,15 +92,17 @@ def is_suspicious_url(url: str) -> bool:
 
 
 def is_valid_url(url: str) -> bool:
-    if "redacted" in url.lower() or url.count('.') < 1:
+    lower_url = url.lower()
+    if "redacted" in lower_url or lower_url.count('.') < 1:
         return False
     try:
-        if '://' in url.lower():
+        if '://' in lower_url:
             domain_part = url.split('://')[1].split('/')[0].split(':')[0]
             if any(domain_part.endswith(ext) for ext in SUSPICIOUS_EXTENSIONS):
                 return False
-    except:
-        pass
+    except Exception as e:
+        logger.debug(f"Failed to validate url {url}: {e}")
+        return False
     return bool(URL_REGEX.match(url))
 
 
@@ -148,7 +153,8 @@ def extract_iocs_from_content(text: str) -> Dict[str, Set[str]]:
                         domain_part = url.split('://')[1].split('/')[0].split(':')[0]
                         if is_suspicious_domain(domain_part):
                             domains.add(domain_part)
-            except:
+            except Exception as e:
+                logger.debug(f"Failed to parse url {url}: {e}")
                 continue
 
         iocs['fqdns'] = {d for d in domains if is_suspicious_domain(d)}
@@ -158,6 +164,7 @@ def extract_iocs_from_content(text: str) -> Dict[str, Set[str]]:
         logger.warning(f"Error extracting IOCs: {e}")
 
     return iocs
+
 
 def create_misp_event_object(article: Dict, event_info: str, iocs: Dict[str, Set[str]]) -> Optional[MISPEvent]:
     try:
