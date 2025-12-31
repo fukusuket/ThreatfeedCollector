@@ -242,7 +242,7 @@ def test_create_misp_event_object_adds_iocs_from_table(monkeypatch):
     event = ioc_extract.create_misp_event_object(article, "info", iocs)
 
     assert event is mock_event
-    obj.add_attribute.assert_called_once_with('command-line', 'powershell.exe -enc aaa')
+    obj.add_attribute.assert_called_once_with('command_line', 'powershell.exe -enc aaa')
     assert obj.comment == "persistence"
     mock_event.add_object.assert_called_once_with(obj)
     mock_event.add_attribute.assert_any_call(
@@ -273,7 +273,7 @@ def test_add_ai_iocs_from_summary_trims_quotes(monkeypatch):
 
     ioc_extract._add_ai_iocs_from_summary(event, ai_summary)
 
-    obj.add_attribute.assert_called_once_with("command-line", "powershell -enc aaa")
+    obj.add_attribute.assert_called_once_with("command_line", "powershell -enc aaa")
     assert obj.comment == "persistence"
     event.add_object.assert_called_once_with(obj)
     event.add_attribute.assert_any_call(
