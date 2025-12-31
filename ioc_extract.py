@@ -155,28 +155,6 @@ def _trim_to_ioc_section(markdown_text: str) -> str:
     return "\n".join(lines[start_idx:]).strip()
 
 
-def _parse_ioc_rows_from_markdown(markdown_text: str) -> list[Dict[str, str]]:
-    rows = []
-    for line in markdown_text.splitlines():
-        if not line.strip().startswith("|"):
-            continue
-        cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if len(cells) < 3:
-            continue
-        if cells[0].lower() in {"type", "---"}:
-            continue
-        type_cell, value_cell, context_cell = cells[0], cells[1], cells[2]
-        type_lower = type_cell.lower()
-        if "file" in type_lower:
-            kind = "file"
-        elif "command" in type_lower or "process" in type_lower:
-            kind = "command"
-        else:
-            continue
-        rows.append({"kind": kind, "value": value_cell, "context": context_cell})
-    return rows
-
-
 def extract_iocs_from_content(text: str) -> Dict[str, Set[str]]:
     iocs = {
         "urls": set(),
@@ -272,6 +250,32 @@ def _add_extracted_ioc_attributes(event: MISPEvent, iocs: Dict[str, Set[str]]) -
                 logger.warning(f"Failed to add attribute for {ioc_type}={ioc_value}: {e}")
 
 
+def _parse_ioc_rows_from_markdown(markdown_text: str) -> list[Dict[str, str]]:
+    rows = []
+    for line in markdown_text.splitlines():
+        if not line.strip().startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) < 3:
+            continue
+        if cells[0].lower() in {"type", "---"}:
+            continue
+        type_cell, value_cell, context_cell = cells[0], cells[1], cells[2]
+        type_lower = type_cell.lower()
+        if "file" in type_lower:
+            kind = "file"
+        elif "command" in type_lower or "process" in type_lower:
+            kind = "command"
+        elif "registry" in type_lower:
+            kind = "registry"
+        elif "email" in type_lower:
+            kind = "email"
+        else:
+            continue
+        rows.append({"kind": kind, "value": value_cell, "context": context_cell})
+    return rows
+
+
 def _add_ai_iocs_from_summary(event: MISPEvent, ai_summary: str) -> None:
     ioc_section = _trim_to_ioc_section(ai_summary)
     if not ioc_section:
@@ -279,21 +283,21 @@ def _add_ai_iocs_from_summary(event: MISPEvent, ai_summary: str) -> None:
     ioc_rows = _parse_ioc_rows_from_markdown(ioc_section)
     for row in ioc_rows:
         try:
-            if row["kind"] == "file":
+            comment = row.get("context", "")
+            value = row.get("value", "")
+            if row["kind"] == "command":
                 obj = MISPObject(name="command-line")
                 obj.comment = row.get("context", "")
-                obj.add_attribute("command-line", row.get("value", ""))
+                obj.add_attribute("command-line", value)
                 event.add_object(obj)
-            elif row["kind"] == "command":
-                event.add_attribute(
-                    category="Persistence mechanism",
-                    type="file",
-                    value=row.get("value", ""),
-                    comment=row.get("context", ""),
-                )
+            elif row["kind"] == "file":
+                event.add_attribute(category="Persistence mechanism", type="file", value=value, comment=comment)
+            elif row["kind"] == "registry":
+                event.add_attribute(category="Persistence mechanism", type="regkey", value=value, comment=comment)
+            elif row["kind"] == "email":
+                event.add_attribute(category="Payload delivery", type="email-src", value=value, comment=comment)
         except Exception as e:
             logger.warning(f"Failed to add AI IoC row {row}: {e}")
-
 
 
 def create_misp_event_object(article: Dict, event_info: str, iocs: Dict[str, Set[str]]) -> Optional[MISPEvent]:

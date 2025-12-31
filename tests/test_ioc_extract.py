@@ -242,14 +242,14 @@ def test_create_misp_event_object_adds_iocs_from_table(monkeypatch):
     event = ioc_extract.create_misp_event_object(article, "info", iocs)
 
     assert event is mock_event
-    obj.add_attribute.assert_called_once_with("command-line", "C:\\evil\\a.exe")
-    assert obj.comment == "dropper"
+    obj.add_attribute.assert_called_once_with('command-line', 'powershell.exe -enc aaa')
+    assert obj.comment == "persistence"
     mock_event.add_object.assert_called_once_with(obj)
     mock_event.add_attribute.assert_any_call(
         category="Persistence mechanism",
         type="file",
-        value="powershell.exe -enc aaa",
-        comment="persistence",
+        value="C:\\evil\\a.exe",
+        comment="dropper",
     )
     mock_event.add_event_report.assert_any_call(
         name="[en]_info", content=ioc_extract.trim_markdown_fence(ai_summary), distribution=0
