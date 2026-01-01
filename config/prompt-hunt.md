@@ -71,7 +71,7 @@ Write **3 to 5 bullet points** using `-`. Each bullet must be **one short senten
 
 ### IoCs
 IoCs must **always be output as a Markdown table**. Fix the columns to these three: **Type / Value / Context**.If you output an IoCs table, sort the rows by the `Type` column in ascending order (A–Z).
-- Type: `IP` / `Domain` / `URL` / `Hash` / `File path` / `Command line` / `Registry` / `Browser extension` / `Email address`, etc.
+- Type: `IP` / `Domain` / `URL` / `Hash` / `File path` / `Command line` / `Registry` / `Browser extension`, etc.
 - Value: IoC values **explicitly stated** in the article (only valid formats).
 - Context: In one line, describe the **purpose/behavior** in which the IoC was observed in the article (e.g., what it was used for).
 - If an IoC is a hash value, do not output it unless it is in md5 or sha256 format.
