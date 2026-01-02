@@ -23,6 +23,9 @@ Analyze the **full text of the provided threat research blog article** and produ
 
 ## Anti-hallucination rules (strict)
 - Do **not** infer, guess, extend, or assert anything that is not **explicitly stated** or **technically supported** by the article.
+- Never generate new IoCs (IP/domain/hash), tool names, malware names, or infrastructure that do not appear in the article.
+- Avoid analysis-style hedges such as **"likely"**, **"possibly"**, **"may"**, **"suspected"**.
+  - Use factual phrasing like: **"The article reports…"**, **"The article observes…"**, **"The article states…"**.
 - Attacker country/attribution/motivation: mention **only if clearly stated** in the article.
 - MITRE ATT&CK tactic/technique IDs: include **only if clearly and directly mappable** from behaviors described in the article.
   - If unsure, **omit ATT&CK IDs** and describe the behavior only.
@@ -33,10 +36,7 @@ Analyze the **full text of the provided threat research blog article** and produ
   - **"Unknown (not stated in the article)"** for missing dates/status fields
   - **"Not stated in the article"** for missing factual items
   - **"Details are limited in the article"** for incomplete coverage
-- Never generate new IoCs (IP/domain/hash), tool names, malware names, or infrastructure that do not appear in the article.
-- 
-- Avoid analysis-style hedges such as **"likely"**, **"possibly"**, **"may"**, **"suspected"**.
-  - Use factual phrasing like: **"The article reports…"**, **"The article observes…"**, **"The article states…"**.
+
 
 ---
 
@@ -75,6 +75,7 @@ IoCs must **always be output as a Markdown table**. Fix the columns to these thr
 - Value: IoC values **explicitly stated** in the article (only valid formats).
 - Context: In one line, describe the **purpose/behavior** in which the IoC was observed in the article (e.g., what it was used for).
 - If an IoC is a hash value, do not output it unless it is in md5 or sha256 format.
+- Do not include reference article URLs or product support email addresses that are unrelated to the attack as IoCs
 
 If **no IoCs are mentioned at all** in the article, do not output a table and output only the single line: **`Not stated in the article`**.
 Even if IoCs are mentioned, do **not** guess, generate, or fill in missing values (do not output values not present in the article).
