@@ -7,6 +7,7 @@ import logging
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import List, Dict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 import urllib3
@@ -43,6 +44,7 @@ else:
 RSS_FEEDS_CSV = str(Path(__file__).resolve().parent / "config" / "rss_feeds.csv")
 OUTPUT_CSV = f"ioc_stats_{datetime.now().strftime('%Y%m%d')}.csv"
 DAYS_BACK = int(os.getenv("DAYS_BACK", "7"))
+FEED_WORKERS = int(os.getenv("FEED_WORKERS", "8"))
 
 Article = Dict[str, str]
 
@@ -367,7 +369,9 @@ def main() -> None:
 
     logger.info(f"Processing {len(feeds)} RSS feeds")
     cutoff_date = datetime.now() - timedelta(days=DAYS_BACK)
-    for vendor, feed_url, blog_url, crawl_links in feeds:
+
+    def _process_vendor_feed(row: List[str]) -> str:
+        vendor, feed_url, blog_url, crawl_links = row
         logger.info(f"Processing vendor: {vendor}")
         should_crawl_links = str(crawl_links).lower() == "true"
         crawl_same_domain = False
@@ -390,6 +394,20 @@ def main() -> None:
             process_article(
                 misp, article, vendor, should_crawl_links, crawl_same_domain
             )
+        return vendor
+
+    max_workers = max(1, min(FEED_WORKERS, len(feeds)))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_vendor = {
+            executor.submit(_process_vendor_feed, row): row[0] for row in feeds
+        }
+        for future in as_completed(future_to_vendor):
+            vendor = future_to_vendor[future]
+            try:
+                future.result()
+                logger.info(f"Completed vendor: {vendor}")
+            except Exception as exc:
+                logger.warning(f"Vendor {vendor} failed: {exc}")
 
     save_stats(misp)
     logger.info(f"Completed in {time.time() - start_time:.2f} seconds")
