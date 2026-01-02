@@ -23,5 +23,6 @@ any.run
 joesandbox.com
 bleepingcomputer.com
 thehackernews
+thehackernews.com
 web3adspanels.com
-
+cve.org
