@@ -55,6 +55,7 @@ Write four short sentences. Cover:
 ### Timeline
 - Publication date: (state date if present; otherwise "Unknown (not stated in the article)")
 - First observed activity date: (state date if present; otherwise "Unknown (not stated in the article)")
+- Dates must be formatted as YYYY-MM-DD or YYYY-MM.
 
 ### Targeted Systems
 - Describe the **type of systems and roles** targeted (e.g., internet-facing apps, identity infrastructure, endpoints, cloud workloads).
