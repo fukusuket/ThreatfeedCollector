@@ -224,6 +224,8 @@ def fetch_full_content(
                     headers={"User-Agent": feedparser.USER_AGENT},
                 )
                 r.raise_for_status()
+                if not r.encoding or r.encoding.lower() == "iso-8859-1":
+                    r.encoding = r.apparent_encoding or "utf-8"
                 child_soup = BeautifulSoup(response_text(r), "html.parser")
                 child_title = (
                     (child_soup.title.string or "").strip()
