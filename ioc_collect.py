@@ -49,6 +49,12 @@ FEED_WORKERS = int(os.getenv("FEED_WORKERS", "8"))
 Article = Dict[str, str]
 
 
+def _entry_get(entry, key: str, default=""):
+    if isinstance(entry, dict):
+        return entry.get(key, default)
+    return getattr(entry, key, default)
+
+
 def is_recent_article(date_str: str, cutoff_date: datetime) -> bool:
     if not date_str:
         return True
@@ -68,6 +74,29 @@ def strip_scripts_and_get_text(soup: BeautifulSoup) -> str:
     return soup.get_text(separator="\n")
 
 
+def decode_response_text(response: requests.Response) -> str:
+    encoding = response.encoding if isinstance(response.encoding, str) else None
+    apparent = response.apparent_encoding if isinstance(response.apparent_encoding, str) else None
+    if (not encoding or encoding.lower() == "iso-8859-1") and apparent:
+        encoding = apparent
+    if not encoding:
+        encoding = "utf-8"
+    try:
+        return response.content.decode(encoding, errors="replace")
+    except Exception:
+        try:
+            return response.text
+        except Exception:
+            return ""
+
+
+def response_text(response: requests.Response) -> str:
+    text = getattr(response, "text", None)
+    if isinstance(text, str) and text:
+        return text
+    return decode_response_text(response)
+
+
 def fetch_url_content(url: str) -> str:
     logger.info(f"Fetching content from: {url}")
     try:
@@ -77,7 +106,8 @@ def fetch_url_content(url: str) -> str:
             url, timeout=10, verify=False, headers={"User-Agent": feedparser.USER_AGENT}
         )
         response.raise_for_status()
-        return strip_scripts_and_get_text(BeautifulSoup(response.text, "html.parser"))
+        html_text = response_text(response)
+        return strip_scripts_and_get_text(BeautifulSoup(html_text, "html.parser"))
     except Exception as e:
         logger.warning(f"Failed to fetch content from {url}: {e}")
         return ""
@@ -103,27 +133,30 @@ def process_feed(
 
         articles = []
         for entry in feed.entries:
-            pub_date = entry.get("published", "")
+            pub_date = _entry_get(entry, "published", "")
             if is_recent_article(pub_date, cutoff_date):
-                logger.info(f"Found recent article: {entry.get('title', '')}")
+                logger.info(f"Found recent article: {_entry_get(entry, 'title', '')}")
                 content = ""
-                if hasattr(entry, "content") and entry.content:
+                entry_content = _entry_get(entry, "content")
+                entry_summary = _entry_get(entry, "summary")
+                entry_link = _entry_get(entry, "link", "")
+                if entry_content:
                     content = (
-                        entry.content[0].value
-                        if isinstance(entry.content, list)
-                        else entry.content
+                        entry_content[0].value
+                        if isinstance(entry_content, list)
+                        else entry_content
                     )
                     content = BeautifulSoup(content, "html.parser").get_text()
-                elif hasattr(entry, "summary") and entry.summary:
-                    content = BeautifulSoup(entry.summary, "html.parser").get_text()
+                elif entry_summary:
+                    content = BeautifulSoup(entry_summary, "html.parser").get_text()
                 else:
-                    content = fetch_url_content(entry.get("link", ""))
+                    content = fetch_url_content(entry_link)
 
                 articles.append(
                     {
-                        "title": entry.get("title", ""),
+                        "title": _entry_get(entry, "title", ""),
                         "date": pub_date,
-                        "url": entry.get("link", ""),
+                        "url": entry_link,
                         "content": content,
                         "vendor": vendor_name,
                     }
@@ -152,7 +185,7 @@ def fetch_full_content(
             url, timeout=10, verify=False, headers={"User-Agent": feedparser.USER_AGENT}
         )
         response.raise_for_status()
-        soup = BeautifulSoup(response.text, "html.parser")
+        soup = BeautifulSoup(response_text(response), "html.parser")
         article["content"] = strip_scripts_and_get_text(soup)
         articles = [article]
 
@@ -191,7 +224,7 @@ def fetch_full_content(
                     headers={"User-Agent": feedparser.USER_AGENT},
                 )
                 r.raise_for_status()
-                child_soup = BeautifulSoup(r.text, "html.parser")
+                child_soup = BeautifulSoup(response_text(r), "html.parser")
                 child_title = (
                     (child_soup.title.string or "").strip()
                     if child_soup.title and child_soup.title.string

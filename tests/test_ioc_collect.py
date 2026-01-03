@@ -27,7 +27,44 @@ def patch_env(monkeypatch, tmp_path):
     monkeypatch.setattr(ioc_collect, "MISP_KEY", "dummy")
 
 
-# --- is_recent_article ----------------------------------------------------
+def test_entry_get_supports_dict_and_obj():
+    obj = SimpleNamespace(title="obj")
+    assert ioc_collect._entry_get({"title": "dict"}, "title") == "dict"
+    assert ioc_collect._entry_get(obj, "title") == "obj"
+    assert ioc_collect._entry_get(obj, "missing", "default") == "default"
+
+
+def test_decode_response_text_prefers_apparent(monkeypatch):
+    body = "こんにちは"
+    resp = MagicMock()
+    resp.encoding = "iso-8859-1"
+    resp.apparent_encoding = "utf-8"
+    resp.content = body.encode("utf-8")
+    assert ioc_collect.decode_response_text(resp) == body
+
+
+def test_decode_response_text_falls_back_to_text_on_error():
+    resp = MagicMock()
+    resp.encoding = "x-bad"
+    resp.apparent_encoding = None
+    resp.content = b"ignored"
+    resp.text = "fallback"
+    assert ioc_collect.decode_response_text(resp) == "fallback"
+
+
+def test_response_text_prefers_text():
+    resp = MagicMock()
+    resp.text = "direct"
+    assert ioc_collect.response_text(resp) == "direct"
+
+
+def test_response_text_uses_decode_when_no_text():
+    resp = MagicMock()
+    resp.text = None
+    resp.encoding = "utf-8"
+    resp.apparent_encoding = None
+    resp.content = b"abc"
+    assert ioc_collect.response_text(resp) == "abc"
 
 
 def test_is_recent_article_handles_tz_and_empty():
@@ -36,9 +73,6 @@ def test_is_recent_article_handles_tz_and_empty():
     assert ioc_collect.is_recent_article("2023-12-31", cutoff) is False
     assert ioc_collect.is_recent_article("", cutoff) is True
     assert ioc_collect.is_recent_article("bad-date", cutoff) is True
-
-
-# --- strip_scripts_and_get_text ------------------------------------------
 
 
 def test_strip_scripts_and_get_text_removes_scripts():
