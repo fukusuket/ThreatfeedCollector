@@ -92,6 +92,7 @@ The tool will:
 - **Hashes**: MD5, SHA-1, and SHA-256 hashes
 
 ## Acknowledgements
+This tool is made possible thanks to the maintainers and contributors of these outstanding open-source projects.
 - [MISP/PyMISP](https://github.com/MISP/PyMISP)
 - [MISP/PyMISPWarningLists](https://github.com/MISP/PyMISPWarningLists.git)
 - [kurtmckee/feedparser](https://github.com/kurtmckee/feedparser)
