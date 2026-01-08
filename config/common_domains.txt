@@ -26,3 +26,4 @@ thehackernews
 thehackernews.com
 web3adspanels.com
 cve.org
+darkreading.com
