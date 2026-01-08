@@ -90,6 +90,9 @@ The tool will:
 - **IP Addresses**: Public IPv4 addresses
 - **FQDNs**: Domain names (excluding common domains)
 - **Hashes**: MD5, SHA-1, and SHA-256 hashes
+- **File Paths**: Extracted from article content
+- **Command Lines**: Extracted from article content
+- **Browser Extensions**: Extracted from article content
 
 ## Acknowledgements
 This tool is made possible thanks to the maintainers and contributors of these outstanding open-source projects.
