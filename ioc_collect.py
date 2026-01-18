@@ -261,25 +261,25 @@ def add_event_to_misp(article: Article, iocs: Dict, misp: PyMISP) -> bool:
         if existing_events and len(existing_events) > 0:
             logger.info(f"Event with same title already exists, skipping: {event_info}")
             return False
-        url = article.get("url", "")
-        existing_attrs = misp.search(
-            controller="attributes",
-            value=url,
-            type="url",
-            category="External analysis",
-            pythonify=True,
-        )
-        if existing_attrs:
-            logger.info(
-                f"External analysis URL already exists in MISP, skipping: {url}"
-            )
-            return False
         logger.info(f"No existing event found with title: {event_info}")
         event = create_misp_event_object(article, event_info, iocs)
         if event:
+            url = article.get("url", "")
+            existing_attrs = misp.search(
+                controller="attributes",
+                value=url,
+                type="url",
+                category="External analysis",
+                pythonify=True,
+            )
+            if existing_attrs:
+                logger.info(
+                    f"External analysis URL already exists in MISP, skipping: {url}"
+                )
+                return False
             misp.add_event(event, pythonify=True)
             return True
-        logger.info("No valid IOCs found, skipping event creation")
+        logger.info("Skipping event creation")
     except Exception as e:
         logger.warning(f"Failed to create event: {e}")
     return False
