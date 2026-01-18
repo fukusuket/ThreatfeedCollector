@@ -261,16 +261,17 @@ def add_event_to_misp(article: Article, iocs: Dict, misp: PyMISP) -> bool:
         if existing_events and len(existing_events) > 0:
             logger.info(f"Event with same title already exists, skipping: {event_info}")
             return False
-        url_attrs = misp.search(
+        url = article.get("url", "")
+        existing_attrs = misp.search(
             controller="attributes",
-            value=article.get("url", ""),
+            value=url,
             type="url",
             category="External analysis",
             pythonify=True,
         )
-        if url_attrs and len(url_attrs) > 0:
+        if existing_attrs:
             logger.info(
-                f"Event with same External analysis URL already exists, skipping: {article.get('url', '')}"
+                f"External analysis URL already exists in MISP, skipping: {url}"
             )
             return False
         logger.info(f"No existing event found with title: {event_info}")
