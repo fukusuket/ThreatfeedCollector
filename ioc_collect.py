@@ -187,9 +187,10 @@ def fetch_full_content(
         response.raise_for_status()
         soup = BeautifulSoup(response_text(response), "html.parser")
         article["content"] = strip_scripts_and_get_text(soup)
-        articles = [article]
+        articles = []
 
         if not crawl_links:
+            articles.append(article)
             return articles
 
         seen_urls = {url}
