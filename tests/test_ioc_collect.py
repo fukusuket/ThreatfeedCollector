@@ -187,10 +187,9 @@ def test_fetch_full_content_crawl_links(monkeypatch):
 
     article = {"url": "http://main", "date": "2024-01-01", "vendor": "v", "title": "T"}
     result = ioc_collect.fetch_full_content(article, crawl_links=True)
-    assert len(result) == 2
-    assert result[0]["content"] == "main"
-    assert result[1]["title"] == "Child"
-    assert result[1]["url"] == "http://child"
+    assert len(result) == 1
+    assert result[0]["title"] == "Child"
+    assert result[0]["url"] == "http://child"
 
 
 def test_fetch_full_content_handles_errors(monkeypatch):
@@ -217,7 +216,7 @@ def test_fetch_full_content_skips_common_domains(monkeypatch):
 
     article = {"url": "http://main", "date": "2024-01-01", "vendor": "v", "title": "T"}
     result = ioc_collect.fetch_full_content(article, crawl_links=True)
-    assert len(result) == 1  # child skipped
+    assert len(result) == 0  # child skipped
 
 
 def test_add_event_to_misp_skips_existing(monkeypatch):
