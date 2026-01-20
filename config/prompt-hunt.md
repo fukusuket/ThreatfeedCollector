@@ -108,7 +108,7 @@ Do not output invalid or improperly formatted values.
 - Use **only the IoCs(refang) listed in the IoCs section**; do not introduce new values.
 - For each `Type`, produce **one query line** that concatenates all values of that type using `|` and wraps the group in parentheses and use code block. Example: `Domain: (domain1.com|domain2.com)`.
 - If a type has no IoCs, skip that type. If there are no IoCs at all, output exactly `Not stated in the article`.
-- Enclose the entire Query Parts Sample output in copyable HTML blocks (e.g., Domain:```(domain1.com|domain2.com)```) so users can paste it directly.
+- Enclose the entire Query Parts Sample output in copyable HTML blocks (e.g., ```Domain: (domain1.com|domain2.com)```) so users can paste it directly.
 
 ---
 
