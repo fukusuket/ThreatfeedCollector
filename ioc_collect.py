@@ -262,6 +262,10 @@ def add_event_to_misp(article: Article, iocs: Dict, misp: PyMISP) -> bool:
             logger.info(f"Event with same title already exists, skipping: {event_info}")
             return False
         logger.info(f"No existing event found with title: {event_info}")
+        url = article.get("url", "")
+        if url:
+            url = re.sub(r"#.*", "", url)
+            article['url'] = url
         event = create_misp_event_object(article, event_info, iocs)
         if event:
             url = article.get("url", "")

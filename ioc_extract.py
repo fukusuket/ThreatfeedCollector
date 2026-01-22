@@ -306,8 +306,6 @@ def create_misp_event_object(article: Dict, event_info: str, iocs: Dict[str, Set
         event.info = event_info
         event.date = to_yyyy_mm_dd(article.get("date", ""))
         url = article.get("url", "")
-        if url:
-            url = re.sub(r"#.*", "", url)
         event.add_attribute(type="url", value=url, category="External analysis", to_ids=False)
         event.add_attribute(type="comment", value=article.get("content", ""), category="Other", to_ids=False)
         _add_extracted_ioc_attributes(event, iocs)
