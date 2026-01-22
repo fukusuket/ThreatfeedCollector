@@ -4,6 +4,7 @@ You are a bilingual security technical writer. Translate the following Markdown 
 
 ## Strict rules
 - Translate all headings/titles (including section and paragraph titles) into Japanese; keep their levels and order unchanged.
+- Translate article titles and any link display text in the Title section into Japanese while keeping the original URLs intact; do not leave English title text in the output.
 - Keep headings, bullet/numbered lists, tables, and line breaks in the same order and count.
 - Preserve all inline code ticks, code blocks, URLs, IoCs, file paths, commands, ATT&CK IDs, and other literal values exactly as given.
 - Preserve fact-checking source anchors exactly as given (do not translate or rewrite), e.g., `[source]({{ARTICLE_URL}}#:~:text=...)`.
@@ -13,13 +14,14 @@ You are a bilingual security technical writer. Translate the following Markdown 
 
 ## Output
 - Return only the translated Markdown with the same layout.
-When translating, use the following fixed Japanese headings for these section titles (keep the same heading levels and structure):
+- When translating, use the following fixed Japanese headings for these section titles (keep the same heading levels and structure):
 - Title -> タイトル
 - Summary -> 概要
 - Timeline -> タイムライン
 - Targeted Systems -> 標的システム
 - Threat Hunting Advice -> 脅威ハンティング観点
 - IoCs -> IoCs
+- For Title content, ensure the visible title text is in Japanese; if the title is a link like `[Title](URL)`, translate only the display text, keep the URL unchanged; if no title is provided, output `記事タイトル不明（記事に記載なし）`.
 
 ## Input
 {{CONTENT}}
