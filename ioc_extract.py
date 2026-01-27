@@ -300,6 +300,28 @@ def _add_ai_iocs_from_summary(event: MISPEvent, ai_summary: str) -> None:
             logger.warning(f"Failed to add AI summary iocs {row}: {e}")
 
 
+def _build_query_sample_markdown(iocs: Dict[str, Set[str]]) -> str:
+    ips = sorted(iocs.get("ips", set()))
+    fqdns = sorted(iocs.get("fqdns", set()))
+    browser_extensions = sorted(iocs.get("browser_extensions", set()))
+    if not ips and not fqdns and not browser_extensions:
+        return ""
+    lines = ["### Query Sample"]
+    if ips:
+        lines.append("```")
+        lines.append(f"ips: ({"|".join(ips)})")
+        lines.append("```")
+    if fqdns:
+        lines.append("```")
+        lines.append(f"fqdns: ({"|".join(fqdns)})")
+        lines.append("```")
+    if browser_extensions:
+        lines.append("```")
+        lines.append(f"browser_extensions: ({" | ".join(browser_extensions)})")
+        lines.append("```")
+    return "\n".join(lines)
+
+
 def create_misp_event_object(article: Dict, event_info: str, iocs: Dict[str, Set[str]]) -> Optional[MISPEvent]:
     try:
         event = MISPEvent()
@@ -309,14 +331,18 @@ def create_misp_event_object(article: Dict, event_info: str, iocs: Dict[str, Set
         event.add_attribute(type="url", value=url, category="External analysis", to_ids=False)
         event.add_attribute(type="comment", value=article.get("content", ""), category="Other", to_ids=False)
         _add_extracted_ioc_attributes(event, iocs)
-
         ai_summary_en = analyze_threat_article(
             content=article.get("content", ""),
             title=article.get("title", ""),
             url=article.get("url", ""),
         )
-        event.add_event_report(name="[en]_" + event_info, content=trim_markdown_fence(ai_summary_en), distribution=0)
+        ai_summary_en = trim_markdown_fence(ai_summary_en)
+        event.add_event_report(name="[en]_" + event_info, content=ai_summary_en, distribution=0)
         _add_ai_iocs_from_summary(event, ai_summary_en)
+
+        query_sample = _build_query_sample_markdown(iocs)
+        if query_sample:
+            ai_summary_en = f"{ai_summary_en}\n\n{query_sample}"
 
         ai_summary_jp = analyze_threat_article(
             content=ai_summary_en,
