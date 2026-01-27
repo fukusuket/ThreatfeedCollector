@@ -132,7 +132,7 @@ def process_feed(
             return []
 
         articles = []
-        for entry in feed.entries:
+        for entry in reversed(feed.entries):
             pub_date = _entry_get(entry, "published", "")
             if is_recent_article(pub_date, cutoff_date):
                 logger.info(f"Found recent article: {_entry_get(entry, 'title', '')}")
