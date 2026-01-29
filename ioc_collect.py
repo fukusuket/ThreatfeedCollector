@@ -35,12 +35,11 @@ logger = logging.getLogger(__name__)
 
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
-MISP_URL = os.getenv("MISP_URL", "")
-MISP_KEY = None
-if Path("/shared/authkey.txt").exists():
+MISP_URL = os.getenv("MISP_URL", "https://misp-core")
+MISP_KEY = os.getenv("MISP_KEY", "")
+if not MISP_KEY and Path("/shared/authkey.txt").exists():
     MISP_KEY = Path("/shared/authkey.txt").read_text().strip()
-else:
-    MISP_KEY = os.getenv("MISP_KEY")
+
 RSS_FEEDS_CSV = str(Path(__file__).resolve().parent / "config" / "rss_feeds.csv")
 OUTPUT_CSV = f"ioc_stats_{datetime.now().strftime('%Y%m%d')}.csv"
 DAYS_BACK = int(os.getenv("DAYS_BACK", "7"))
