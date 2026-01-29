@@ -25,6 +25,7 @@ def analyze_threat_article(
     title: str = "",
     url: str = "",
     model: str = "gpt-5.2",
+    lang: str = "Japanese",
     prompt_path: str = str(Path(__file__).resolve().parent / "config" / "prompt-hunt.md"),
     additional_pre_context: str = "",
 ) -> str:
@@ -35,6 +36,7 @@ def analyze_threat_article(
         )
         prompt_template = prompt_template.replace("{{ARTICLE_TITLE}}", title)
         prompt_template = prompt_template.replace("{{ARTICLE_URL}}", url)
+        prompt_template = prompt_template.replace("{{LANG}}", lang)
         prompt = prompt_template.replace("{{CONTENT}}", content)
     except Exception:
         return ""
