@@ -33,7 +33,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-load_dotenv(Path(__file__).resolve().parent / ".env")
+env_path = Path(__file__).resolve().parent / ".env"
+if not env_path.exists():
+    env_path = env_path.parent / ".env"
+load_dotenv(env_path)
 
 MISP_URL = os.getenv("MISP_URL", "https://misp-core")
 MISP_KEY = os.getenv("MISP_KEY", "")
