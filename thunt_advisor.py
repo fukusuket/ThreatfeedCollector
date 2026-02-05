@@ -4,7 +4,10 @@ import httpx
 import os
 from dotenv import load_dotenv
 
-load_dotenv(Path(__file__).resolve().parent / ".env")
+env_path = Path(__file__).resolve().parent / ".env"
+if not env_path.exists():
+    env_path = env_path.parent / ".env"
+load_dotenv(env_path)
 
 
 def _get_api_key(service: str = "openai") -> str:
