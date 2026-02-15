@@ -319,7 +319,7 @@ def _build_query_sample_markdown(iocs: Dict[str, Set[str]]) -> str:
         lines.append("```")
     if browser_extensions:
         lines.append("```")
-        lines.append(f"browser_extensions: ({" | ".join(browser_extensions)})")
+        lines.append(f"browser_extensions: ({"|".join(browser_extensions)})")
         lines.append("```")
     if hashes:
         lines.append("```")
