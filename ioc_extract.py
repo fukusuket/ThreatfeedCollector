@@ -217,6 +217,7 @@ def extract_iocs_from_content(text: str) -> Dict[str, Set[str]]:
 def _add_extracted_ioc_attributes(event: MISPEvent, iocs: Dict[str, Set[str]]) -> None:
     for ioc_type, ioc_set in iocs.items():
         for ioc_value in ioc_set:
+            ioc_type = ioc_type.lower()
             try:
                 if ioc_type == "urls":
                     attr_type = "url"
