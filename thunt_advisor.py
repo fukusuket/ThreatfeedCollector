@@ -27,7 +27,7 @@ def analyze_threat_article(
     content: str,
     title: str = "",
     url: str = "",
-    model: str = "gpt-5.2",
+    model: str = "gpt-5.4",
     lang: str = "Japanese",
     prompt_path: str = str(Path(__file__).resolve().parent / "config" / "prompt-hunt.md"),
     additional_pre_context: str = "",
