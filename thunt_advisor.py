@@ -27,7 +27,7 @@ def analyze_threat_article(
     content: str,
     title: str = "",
     url: str = "",
-    model: str = "gpt-5.4",
+    model: str = "gpt-5.5",
     lang: str = "Japanese",
     prompt_path: str = str(Path(__file__).resolve().parent / "config" / "prompt-hunt.md"),
     additional_pre_context: str = "",
@@ -59,7 +59,6 @@ def analyze_threat_article(
                 },
                 {"role": "user", "content": prompt},
             ],
-            temperature=0,
         )
         return response.choices[0].message.content
     except Exception:
