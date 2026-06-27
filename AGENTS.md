@@ -4,13 +4,13 @@
 Three-module pipeline:
 1. **`ioc_collect.py`** — Reads `config/rss_feeds.csv`, fetches RSS feeds in parallel (`ThreadPoolExecutor`), scrapes article HTML, and pushes MISP events.
 2. **`ioc_extract.py`** — Extracts IoCs (URLs, IPs, FQDNs, hashes, browser extension IDs) using `iocextract` + `pymispwarninglists`, then builds `MISPEvent` objects with AI-generated reports.
-3. **`thunt_advisor.py`** — Calls OpenAI (`gpt-5.4`) using `config/prompt-hunt.md` (English analysis) then `config/prompt-translate.md` (Japanese translation) to attach two `event_report`s to every MISP event.
+3. **`thunt_advisor.py`** — Generates two `event_report`s per MISP event using `config/prompt-hunt.md` (English analysis) then `config/prompt-translate.md` (Japanese translation). The LLM backend is selected by `LLM_PROVIDER` (`openai` | `bedrock`): OpenAI via the OpenAI SDK, or Claude on AWS Bedrock via `anthropic`'s `AnthropicBedrockMantle`. Provider SDKs are imported lazily inside `_call_openai` / `_call_bedrock`; model defaults resolve in `_resolve_model` (`OPENAI_MODEL`→`gpt-5.5`, `BEDROCK_MODEL_ID`→`anthropic.claude-opus-4-8`).
 
 ## Environment Setup
 ```bash
 ./setup.sh          # creates .venv and installs requirements.txt
 source .venv/bin/activate
-cp .env.example .env   # fill in OPENAI_API_KEY, MISP_URL, MISP_KEY, DAYS_BACK
+cp .env.example .env   # fill in LLM_PROVIDER, OPENAI_API_KEY or AWS_REGION/BEDROCK_MODEL_ID, MISP_URL, MISP_KEY, DAYS_BACK
 python ioc_collect.py
 ```
 No shell exports needed — all env vars are loaded via `python-dotenv` from `.env` (or `../.env`).
@@ -19,7 +19,7 @@ No shell exports needed — all env vars are loaded via `python-dotenv` from `.e
 ```bash
 pytest tests/
 ```
-Tests use `monkeypatch` to stub `iocextract`, `PyMISP`, `WARNING_LISTS`, and OpenAI — never require live services.  
+Tests use `monkeypatch` to stub `iocextract`, `PyMISP`, `WARNING_LISTS`, and the LLM providers (OpenAI / Bedrock) — never require live services. `tests/test_thunt_advisor.py` injects fake `openai` / `anthropic` modules to cover both provider paths.  
 Set `MISP_KEY=dummy` before import if running tests outside pytest (the module exits on missing key).
 
 ## Key Config Files

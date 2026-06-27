@@ -6,6 +6,7 @@ beautifulsoup4==4.14.3
 iocextract==1.16.1
 pymispwarninglists
 openai
+anthropic[bedrock]
 python-dotenv
 pytest
 ruff
