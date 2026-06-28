@@ -1,6 +1,9 @@
 from pathlib import Path
+import logging
 import os
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 env_path = Path(__file__).resolve().parent / ".env"
 if not env_path.exists():
@@ -64,9 +67,9 @@ def _call_bedrock(prompt: str, system: str, model: str) -> str:
 
     import boto3
 
-    client = boto3.client(
-        "bedrock-runtime", region_name=os.getenv("AWS_REGION", "us-east-1")
-    )
+    region = os.getenv("AWS_REGION", "us-east-1")
+    logger.info(f"Calling Bedrock model '{model}' in region '{region}'")
+    client = boto3.client("bedrock-runtime", region_name=region)
     body = json.dumps(
         {
             "anthropic_version": "bedrock-2023-05-31",
@@ -75,13 +78,23 @@ def _call_bedrock(prompt: str, system: str, model: str) -> str:
             "messages": [{"role": "user", "content": prompt}],
         }
     )
-    response = client.invoke_model(modelId=model, body=body)
+    logger.debug(f"Bedrock request body size: {len(body)} bytes")
+    try:
+        response = client.invoke_model(modelId=model, body=body)
+    except Exception as e:
+        logger.error(f"Bedrock invoke_model failed for model '{model}': {e}")
+        raise
     payload = json.loads(response["body"].read())
-    return "".join(
+    logger.debug(f"Bedrock response payload keys: {list(payload.keys())}")
+    result = "".join(
         block["text"]
         for block in payload.get("content", [])
         if block.get("type") == "text"
     )
+    logger.info(f"Bedrock returned {len(result)} characters")
+    if not result:
+        logger.warning(f"Bedrock returned empty text. Full payload: {payload}")
+    return result
 
 
 def analyze_threat_article(
@@ -102,14 +115,17 @@ def analyze_threat_article(
         prompt_template = prompt_template.replace("{{ARTICLE_URL}}", url)
         prompt_template = prompt_template.replace("{{LANG}}", lang)
         prompt = prompt_template.replace("{{CONTENT}}", content)
-    except Exception:
+    except Exception as e:
+        logger.error(f"Failed to build prompt from {prompt_path}: {e}")
         return ""
 
     provider = _provider()
     resolved_model = _resolve_model(model, provider)
+    logger.info(f"Analyzing article with provider '{provider}', model '{resolved_model}'")
     try:
         if provider == "bedrock":
             return _call_bedrock(prompt, SYSTEM_PROMPT, resolved_model)
         return _call_openai(prompt, SYSTEM_PROMPT, resolved_model)
-    except Exception:
+    except Exception as e:
+        logger.exception(f"LLM call failed (provider='{provider}', model='{resolved_model}'): {e}")
         return ""
