@@ -60,16 +60,28 @@ def _call_openai(prompt: str, system: str, model: str) -> str:
 
 
 def _call_bedrock(prompt: str, system: str, model: str) -> str:
-    from anthropic import AnthropicBedrockMantle
+    import json
 
-    client = AnthropicBedrockMantle(aws_region=os.getenv("AWS_REGION", "us-east-1"))
-    response = client.messages.create(
-        model=model,
-        max_tokens=16000,
-        system=system,
-        messages=[{"role": "user", "content": prompt}],
+    import boto3
+
+    client = boto3.client(
+        "bedrock-runtime", region_name=os.getenv("AWS_REGION", "us-east-1")
     )
-    return "".join(block.text for block in response.content if block.type == "text")
+    body = json.dumps(
+        {
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": 16000,
+            "system": system,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+    )
+    response = client.invoke_model(modelId=model, body=body)
+    payload = json.loads(response["body"].read())
+    return "".join(
+        block["text"]
+        for block in payload.get("content", [])
+        if block.get("type") == "text"
+    )
 
 
 def analyze_threat_article(

@@ -4,7 +4,7 @@
 Three-module pipeline:
 1. **`ioc_collect.py`** — Reads `config/rss_feeds.csv`, fetches RSS feeds in parallel (`ThreadPoolExecutor`), scrapes article HTML, and pushes MISP events.
 2. **`ioc_extract.py`** — Extracts IoCs (URLs, IPs, FQDNs, hashes, browser extension IDs) using `iocextract` + `pymispwarninglists`, then builds `MISPEvent` objects with AI-generated reports.
-3. **`thunt_advisor.py`** — Generates two `event_report`s per MISP event using `config/prompt-hunt.md` (English analysis) then `config/prompt-translate.md` (Japanese translation). The LLM backend is selected by `LLM_PROVIDER` (`openai` | `bedrock`): OpenAI via the OpenAI SDK, or Claude on AWS Bedrock via `anthropic`'s `AnthropicBedrockMantle`. Provider SDKs are imported lazily inside `_call_openai` / `_call_bedrock`; model defaults resolve in `_resolve_model` (`OPENAI_MODEL`→`gpt-5.5`, `BEDROCK_MODEL_ID`→`anthropic.claude-opus-4-8`).
+3. **`thunt_advisor.py`** — Generates two `event_report`s per MISP event using `config/prompt-hunt.md` (English analysis) then `config/prompt-translate.md` (Japanese translation). The LLM backend is selected by `LLM_PROVIDER` (`openai` | `bedrock`): OpenAI via the OpenAI SDK, or Claude on AWS Bedrock via `boto3`'s `bedrock-runtime` `invoke_model` (Anthropic Messages API body, `anthropic_version: bedrock-2023-05-31`). Provider SDKs are imported lazily inside `_call_openai` / `_call_bedrock`; model defaults resolve in `_resolve_model` (`OPENAI_MODEL`→`gpt-5.5`, `BEDROCK_MODEL_ID`→`anthropic.claude-opus-4-8`).
 
 ## Environment Setup
 ```bash
@@ -19,7 +19,7 @@ No shell exports needed — all env vars are loaded via `python-dotenv` from `.e
 ```bash
 pytest tests/
 ```
-Tests use `monkeypatch` to stub `iocextract`, `PyMISP`, `WARNING_LISTS`, and the LLM providers (OpenAI / Bedrock) — never require live services. `tests/test_thunt_advisor.py` injects fake `openai` / `anthropic` modules to cover both provider paths.  
+Tests use `monkeypatch` to stub `iocextract`, `PyMISP`, `WARNING_LISTS`, and the LLM providers (OpenAI / Bedrock) — never require live services. `tests/test_thunt_advisor.py` injects fake `openai` / `boto3` modules to cover both provider paths.  
 Set `MISP_KEY=dummy` before import if running tests outside pytest (the module exits on missing key).
 
 ## Key Config Files
