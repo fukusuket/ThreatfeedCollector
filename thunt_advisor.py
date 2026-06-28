@@ -12,7 +12,10 @@ load_dotenv(env_path)
 
 SYSTEM_PROMPT = "You are a senior threat intelligence analyst."
 DEFAULT_OPENAI_MODEL = "gpt-5.5"
-DEFAULT_BEDROCK_MODEL = "anthropic.claude-opus-4-8"
+# Newer Claude models on Bedrock require a cross-region inference profile ID
+# (region-prefixed, e.g. "apac.", "us.", "eu."); on-demand model IDs like
+# "anthropic.claude-opus-4-8" raise ValidationException.
+DEFAULT_BEDROCK_MODEL = "apac.anthropic.claude-opus-4-8"
 
 
 def _provider() -> str:
