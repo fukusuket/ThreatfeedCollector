@@ -56,10 +56,7 @@ else:
     for event in events:
         try:
             if 'EventReport' in event['Event'] and len(event['Event']['EventReport']) > 1:
-                title = ""
-                match = re.search(r'\[([^\]]+)\]', event['Event']['info'])
-                if match:
-                    title = match.group(1)
+                title = event['Event']['info']
                 content = event['Event']['EventReport'][1]['content']
                 label = f"{event['Event']['date']} | {title}"
 
