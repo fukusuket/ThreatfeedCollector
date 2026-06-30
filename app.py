@@ -53,8 +53,6 @@ events = misp.search('events', date_to=end_date.strftime('%Y-%m-%d'), date_from=
 if not events:
     st.info("No Event found for the selected date range.")
 else:
-    sort_order = st.radio("↕️ Sort", ["New → Old", "Old → New"], horizontal=True)
-
     for event in events:
         try:
             if 'EventReport' in event['Event'] and len(event['Event']['EventReport']) > 1:
