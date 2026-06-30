@@ -7,7 +7,9 @@ from datetime import datetime, timedelta
 from pymisp import PyMISP
 from dotenv import load_dotenv
 import os
+import urllib3
 
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 env_path = Path(__file__).resolve().parent / ".env"
 if not env_path.exists():
     env_path = Path(__file__).resolve().parent.parent / ".env"
