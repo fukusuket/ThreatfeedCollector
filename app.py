@@ -55,7 +55,6 @@ if not events:
 else:
     sort_order = st.radio("↕️ Sort", ["New → Old", "Old → New"], horizontal=True)
 
-    events = sorted(events, key=lambda e: e['Event']['date'], reverse=(sort_order == "New → Old"))
     for event in events:
         try:
             if 'EventReport' in event['Event'] and len(event['Event']['EventReport']) > 1:
