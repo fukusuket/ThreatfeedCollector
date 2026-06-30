@@ -47,7 +47,7 @@ if isinstance(date_range, tuple) and len(date_range) == 2:
 
 
 misp = PyMISP(MISP_URL, MISP_KEY, False)
-events = misp.search('events', date_to=end_date, date_from=start_date)
+events = misp.search('events', date_to=end_date.strftime('%Y-%m-%d'), date_from=start_date.strftime('%Y-%m-%d'))
 if not events:
     st.info("No Event found for the selected date range.")
 else:
