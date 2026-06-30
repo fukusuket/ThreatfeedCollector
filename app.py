@@ -63,7 +63,7 @@ else:
                 if match:
                     title = match.group(1)
                 content = event['Event']['EventReport'][1]['content']
-                label = f"{event['Event']['date'].strftime('%m-%d')} | {title}"
+                label = f"{event['Event']['date']} | {title}"
 
                 lines = content.splitlines(True)
                 formatted = "".join(lines[3:]).replace("### 概要", f"### {title}")
