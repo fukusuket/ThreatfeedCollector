@@ -1,11 +1,21 @@
+from pathlib import Path
+
 import streamlit as st
 import pandas as pd
 import re
 from datetime import datetime, timedelta
 from pymisp import PyMISP
+from dotenv import load_dotenv
+import os
 
-MISP_URL = ""
-MISP_KEY = ""
+env_path = Path(__file__).resolve().parent / ".env"
+if not env_path.exists():
+    env_path = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(env_path)
+
+
+MISP_URL = os.getenv("MISP_URL", "")
+MISP_KEY = os.getenv("MISP_KEY", "")
 
 font_css = """
 <style>
