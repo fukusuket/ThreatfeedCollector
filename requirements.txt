@@ -10,3 +10,4 @@ boto3
 python-dotenv
 pytest
 ruff
+bandas
