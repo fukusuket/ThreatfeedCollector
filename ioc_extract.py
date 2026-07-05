@@ -337,24 +337,24 @@ def create_misp_event_object(article: Dict, event_info: str, iocs: Dict[str, Set
         event.add_attribute(type="url", value=url, category="External analysis", to_ids=False)
         event.add_attribute(type="comment", value=article.get("content", ""), category="Other", to_ids=False)
         _add_extracted_ioc_attributes(event, iocs)
-        ai_summary_en = analyze_threat_article(
-            content=article.get("content", ""),
-            title=article.get("title", ""),
-            url=article.get("url", ""),
-        )
-
-        event.add_event_report(name="[en]_" + event_info, content=trim_markdown_fence(ai_summary_en), distribution=0)
-        _add_ai_iocs_from_summary(event, ai_summary_en)
-
-        ai_summary_jp = analyze_threat_article(
-            content=ai_summary_en,
-            prompt_path=str(Path(__file__).resolve().parent / "config" / "prompt-translate.md")
-        )
-        query_sample = _build_query_sample_markdown(iocs)
-        if query_sample:
-            ai_summary_jp = f"{ai_summary_jp}\n\n{query_sample}"
-
-        event.add_event_report(name="[jp]_" + event_info, content=trim_markdown_fence(ai_summary_jp), distribution=0)
+        # ai_summary_en = analyze_threat_article(
+        #     content=article.get("content", ""),
+        #     title=article.get("title", ""),
+        #     url=article.get("url", ""),
+        # )
+        #
+        # event.add_event_report(name="[en]_" + event_info, content=trim_markdown_fence(ai_summary_en), distribution=0)
+        # _add_ai_iocs_from_summary(event, ai_summary_en)
+        #
+        # ai_summary_jp = analyze_threat_article(
+        #     content=ai_summary_en,
+        #     prompt_path=str(Path(__file__).resolve().parent / "config" / "prompt-translate.md")
+        # )
+        # query_sample = _build_query_sample_markdown(iocs)
+        # if query_sample:
+        #     ai_summary_jp = f"{ai_summary_jp}\n\n{query_sample}"
+        #
+        # event.add_event_report(name="[jp]_" + event_info, content=trim_markdown_fence(ai_summary_jp), distribution=0)
 
         logger.info("Created MISP Event object.")
         return event
