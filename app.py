@@ -43,7 +43,7 @@ def defang(value: str) -> str:
     return value.replace("http", "hxxp").replace(".", "[.]")
 
 end_date = datetime.now().date()
-start_date = end_date - timedelta(days=2)
+start_date = end_date - timedelta(days=5)
 date_range = st.date_input(
     "Date range",
     (start_date, end_date),
