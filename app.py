@@ -36,9 +36,7 @@ font_css = """
 """
 
 st.markdown(font_css, unsafe_allow_html=True)
-st.set_page_config(page_title="Threat Hunting Dashboard", layout="wide")
-st.title("Hello world!!")
-
+st.set_page_config(page_title="Threat Intelligence Dashboard", layout="wide")
 
 def defang(value: str) -> str:
     """Neutralize dangerous IOCs (url/ip/domain) for safe display."""
@@ -79,11 +77,7 @@ else:
                 None,
             )
 
-            md_lines = [f"### {title}", ""]
-            if article_url:
-                md_lines.append(f"[元記事]({article_url})")
-                md_lines.append("")
-
+            md_lines = [f"### [{title}]({article_url})", ""]
             md_lines.append("| Category | Type | Value |")
             md_lines.append("| --- | --- | --- |")
             for attr in attributes:
