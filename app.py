@@ -41,7 +41,12 @@ st.title("Hello world!!")
 
 end_date = datetime.now().date()
 start_date = end_date - timedelta(days=2)
-date_range = st.date_input("", (start_date, end_date), key="hunt_date_range")
+date_range = st.date_input(
+    "Date range",
+    (start_date, end_date),
+    key="hunt_date_range",
+    label_visibility="collapsed",
+)
 
 if isinstance(date_range, tuple) and len(date_range) == 2:
     start_date, end_date = date_range
