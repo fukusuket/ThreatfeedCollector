@@ -39,6 +39,11 @@ st.markdown(font_css, unsafe_allow_html=True)
 st.set_page_config(page_title="Threat Hunting Dashboard", layout="wide")
 st.title("Hello world!!")
 
+
+def defang(value: str) -> str:
+    """Neutralize dangerous IOCs (url/ip/domain) for safe display."""
+    return value.replace("http", "hxxp").replace(".", "[.]")
+
 end_date = datetime.now().date()
 start_date = end_date - timedelta(days=2)
 date_range = st.date_input(
@@ -82,9 +87,18 @@ else:
             md_lines.append("| Category | Type | Value |")
             md_lines.append("| --- | --- | --- |")
             for attr in attributes:
-                value = str(attr.get('value', '')).replace("|", "\\|")
+                category = attr.get('category', '')
+                attr_type = attr.get('type', '')
+                value = str(attr.get('value', ''))
+                # Defang risky IOCs (url/ip/domain) except the External analysis URL.
+                is_external_url = category == "External analysis" and attr_type == "url"
+                if not is_external_url and any(
+                    kw in attr_type for kw in ("url", "ip", "domain", "hostname")
+                ):
+                    value = defang(value)
+                value = value.replace("|", "\\|")
                 md_lines.append(
-                    f"| {attr.get('category', '')} | {attr.get('type', '')} | {value} |"
+                    f"| {category} | {attr_type} | {value} |"
                 )
 
             with st.expander(label, expanded=False):
