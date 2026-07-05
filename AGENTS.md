@@ -4,7 +4,7 @@
 Three-module pipeline:
 1. **`ioc_collect.py`** — Reads `config/rss_feeds.csv`, fetches RSS feeds in parallel (`ThreadPoolExecutor`), scrapes article HTML, and pushes MISP events.
 2. **`ioc_extract.py`** — Extracts IoCs (URLs, IPs, FQDNs, hashes, browser extension IDs) using `iocextract` + `pymispwarninglists`, then builds `MISPEvent` objects with AI-generated reports.
-3. **`thunt_advisor.py`** — Generates two `event_report`s per MISP event using `config/prompt-hunt.md` (English analysis) then `config/prompt-translate.md` (Japanese translation). The LLM backend is selected by `LLM_PROVIDER` (`openai` | `bedrock`): OpenAI via the OpenAI SDK, or Claude on AWS Bedrock via `boto3`'s `bedrock-runtime` `invoke_model` (Anthropic Messages API body, `anthropic_version: bedrock-2023-05-31`). Provider SDKs are imported lazily inside `_call_openai` / `_call_bedrock`; model defaults resolve in `_resolve_model` (`OPENAI_MODEL`→`gpt-5.5`, `BEDROCK_MODEL_ID`→`anthropic.claude-opus-4-8`).
+3. **`thunt_advisor.py`** — Generates two `event_report`s per MISP event using `config/prompt-hunt.md` (English analysis) then `config/prompt-translate.md` (Japanese translation). The LLM backend is selected by `LLM_PROVIDER` (`openai` | `bedrock`): OpenAI via the OpenAI SDK, or OpenAI models on AWS Bedrock (GPT-5.x via the `bedrock-mantle` Responses API, gpt-oss via `boto3`'s `bedrock-runtime` `invoke_model` with the Chat Completions body). Provider SDKs are imported lazily inside `_call_openai` / `_call_bedrock`; model defaults resolve in `_resolve_model` (`OPENAI_MODEL`→`gpt-5.5`, `BEDROCK_MODEL_ID`→`openai.gpt-5.5`).
 
 ## Environment Setup
 ```bash

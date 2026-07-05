@@ -21,29 +21,6 @@ def prompt_file(tmp_path):
     return str(path)
 
 
-def _install_fake_bedrock(monkeypatch, captured, blocks):
-    class FakeBody:
-        def __init__(self, payload):
-            self._payload = payload
-
-        def read(self):
-            return json.dumps(self._payload).encode("utf-8")
-
-    class FakeClient:
-        def invoke_model(self, **kwargs):
-            captured.update(kwargs)
-            captured["body"] = json.loads(kwargs["body"])
-            return {"body": FakeBody({"content": blocks})}
-
-    def fake_client(service, **kwargs):
-        captured["client_args"] = {"service": service, **kwargs}
-        return FakeClient()
-
-    fake = types.ModuleType("boto3")
-    fake.client = fake_client
-    monkeypatch.setitem(sys.modules, "boto3", fake)
-
-
 def _install_fake_openai(monkeypatch, captured, content):
     class FakeCompletions:
         def create(self, **kwargs):
@@ -60,35 +37,6 @@ def _install_fake_openai(monkeypatch, captured, content):
     fake = types.ModuleType("openai")
     fake.OpenAI = FakeClient
     monkeypatch.setitem(sys.modules, "openai", fake)
-
-
-def test_bedrock_path_concatenates_text_blocks(monkeypatch, prompt_file):
-    monkeypatch.setenv("LLM_PROVIDER", "bedrock")
-    monkeypatch.setenv("BEDROCK_MODEL_ID", "anthropic.claude-opus-4-8")
-    captured = {}
-    blocks = [
-        {"type": "text", "text": "Hello "},
-        {"type": "thinking", "text": "ignored"},
-        {"type": "text", "text": "World"},
-    ]
-    _install_fake_bedrock(monkeypatch, captured, blocks)
-
-    result = thunt_advisor.analyze_threat_article(
-        content="malware",
-        title="T",
-        url="http://x",
-        prompt_path=prompt_file,
-        additional_pre_context="pre",
-    )
-
-    assert result == "Hello World"
-    assert captured["modelId"] == "anthropic.claude-opus-4-8"
-    assert captured["body"]["max_tokens"] == 16000
-    assert captured["body"]["anthropic_version"] == "bedrock-2023-05-31"
-    assert captured["body"]["system"] == thunt_advisor.SYSTEM_PROMPT
-    assert captured["body"]["messages"][0]["role"] == "user"
-    assert "body=malware" in captured["body"]["messages"][0]["content"]
-    assert "ctx=pre" in captured["body"]["messages"][0]["content"]
 
 
 def _install_fake_bedrock_openai(monkeypatch, captured, content):
@@ -125,18 +73,23 @@ def test_bedrock_gpt_oss_model_uses_chat_completions_schema(monkeypatch, prompt_
     _install_fake_bedrock_openai(monkeypatch, captured, "openai-on-bedrock")
 
     result = thunt_advisor.analyze_threat_article(
-        content="malware", prompt_path=prompt_file
+        content="malware",
+        title="T",
+        url="http://x",
+        prompt_path=prompt_file,
+        additional_pre_context="pre",
     )
 
     assert result == "openai-on-bedrock"
     assert captured["modelId"] == "us.openai.gpt-oss-120b-1:0"
-    # OpenAI schema, not Anthropic's.
-    assert "anthropic_version" not in captured["body"]
     assert captured["body"]["max_completion_tokens"] == 16000
     assert captured["body"]["messages"][0]["role"] == "system"
     assert captured["body"]["messages"][0]["content"] == thunt_advisor.SYSTEM_PROMPT
     assert captured["body"]["messages"][1]["role"] == "user"
     assert "body=malware" in captured["body"]["messages"][1]["content"]
+    assert "ctx=pre" in captured["body"]["messages"][1]["content"]
+    assert "title=T" in captured["body"]["messages"][1]["content"]
+    assert "url=http://x" in captured["body"]["messages"][1]["content"]
 
 
 def _install_fake_bedrock_mantle(monkeypatch, captured, text):
@@ -216,13 +169,13 @@ def test_openai_path_returns_message_content(monkeypatch, prompt_file):
 def test_explicit_model_overrides_default(monkeypatch, prompt_file):
     monkeypatch.setenv("LLM_PROVIDER", "bedrock")
     captured = {}
-    _install_fake_bedrock(monkeypatch, captured, [{"type": "text", "text": "ok"}])
+    _install_fake_bedrock_openai(monkeypatch, captured, "ok")
 
     thunt_advisor.analyze_threat_article(
-        content="c", model="anthropic.claude-sonnet-4-6", prompt_path=prompt_file
+        content="c", model="us.openai.gpt-oss-20b-1:0", prompt_path=prompt_file
     )
 
-    assert captured["modelId"] == "anthropic.claude-sonnet-4-6"
+    assert captured["modelId"] == "us.openai.gpt-oss-20b-1:0"
 
 
 def test_missing_prompt_file_returns_empty(monkeypatch):
