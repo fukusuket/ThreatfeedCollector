@@ -2,7 +2,6 @@ from pathlib import Path
 
 import streamlit as st
 import pandas as pd
-import re
 from datetime import datetime, timedelta
 from pymisp import PyMISP
 from dotenv import load_dotenv
@@ -57,15 +56,33 @@ else:
     events = sorted(events, key=lambda e: e['Event']['date'], reverse=(sort_order == "New → Old"))
     for event in events:
         try:
-            if 'EventReport' in event['Event'] and len(event['Event']['EventReport']) > 1:
-                title = event['Event']['info']
-                content = event['Event']['EventReport'][1]['content']
-                label = f"{event['Event']['date']} | {title}"
+            title = event['Event']['info']
+            label = f"{event['Event']['date']} | {title}"
+            attributes = event['Event'].get('Attribute', [])
 
-                lines = content.splitlines(True)
-                formatted = "".join(lines[3:]).replace("### 概要", f"### {title}")
+            article_url = next(
+                (
+                    attr['value']
+                    for attr in attributes
+                    if attr.get('category') == "External analysis" and attr.get('type') == "url"
+                ),
+                None,
+            )
 
-                with st.expander(label, expanded=False):
-                    st.markdown(formatted)
+            md_lines = [f"### {title}", ""]
+            if article_url:
+                md_lines.append(f"[元記事]({article_url})")
+                md_lines.append("")
+
+            md_lines.append("| Category | Type | Value |")
+            md_lines.append("| --- | --- | --- |")
+            for attr in attributes:
+                value = str(attr.get('value', '')).replace("|", "\\|")
+                md_lines.append(
+                    f"| {attr.get('category', '')} | {attr.get('type', '')} | {value} |"
+                )
+
+            with st.expander(label, expanded=False):
+                st.markdown("\n".join(md_lines))
         except Exception as e:
             st.warning(f"Failed to read {event}: {e}")
