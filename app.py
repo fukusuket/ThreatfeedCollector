@@ -85,6 +85,8 @@ else:
                 value = str(attr.get('value', ''))
                 # Defang risky IOCs (url/ip/domain) except the External analysis URL.
                 is_external_url = category == "External analysis" and attr_type == "url"
+                if is_external_url:
+                    continue
                 if not is_external_url and any(
                     kw in attr_type for kw in ("url", "ip", "domain", "hostname")
                 ):
