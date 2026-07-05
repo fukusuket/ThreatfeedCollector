@@ -9,7 +9,7 @@ import iocextract
 from pymispwarninglists import WarningLists
 from pathlib import Path
 
-from thunt_advisor import analyze_threat_article
+# from thunt_advisor import analyze_threat_article
 
 logging.basicConfig(
     level=logging.INFO,
