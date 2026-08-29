@@ -357,6 +357,42 @@ def test_main_handles_missing_rss(monkeypatch, tmp_path):
         ioc_collect.main()
 
 
+def test_main_accepts_three_column_feed_row(monkeypatch, tmp_path):
+    """README documents a 3-column feeds.csv and the reader accepts len(row) >= 2.
+
+    Rows narrower than 4 columns must not blow up the vendor worker (the
+    failure is swallowed by main's per-vendor except, so the symptom is a
+    silently skipped feed).
+    """
+    monkeypatch.setattr(ioc_collect, "PyMISP", MagicMock(return_value=MagicMock()))
+    feeds = tmp_path / "feeds.csv"
+    feeds.write_text("Vendor,RSS,Blog\nv,http://feed,http://blog\n")
+    monkeypatch.setattr(ioc_collect, "RSS_FEEDS_CSV", str(feeds))
+    monkeypatch.setattr(
+        ioc_collect,
+        "process_feed",
+        MagicMock(
+            return_value=[
+                {
+                    "title": "t",
+                    "date": "2024-01-01",
+                    "url": "u",
+                    "content": "c",
+                    "vendor": "v",
+                }
+            ]
+        ),
+    )
+    monkeypatch.setattr(ioc_collect, "process_article", MagicMock())
+    monkeypatch.setattr(ioc_collect, "save_stats", MagicMock())
+
+    ioc_collect.main()
+
+    ioc_collect.process_article.assert_called()
+    # 4th column absent -> link crawling stays off
+    assert ioc_collect.process_article.call_args[0][3] is False
+
+
 def test_main_happy_path(monkeypatch, tmp_path):
     monkeypatch.setattr(ioc_collect, "PyMISP", MagicMock(return_value=MagicMock()))
     feeds = tmp_path / "feeds.csv"

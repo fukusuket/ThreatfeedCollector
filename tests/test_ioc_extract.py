@@ -128,12 +128,6 @@ def test_create_misp_event_object_adds_attributes(monkeypatch):
     monkeypatch.setattr(
         ioc_extract, "to_yyyy_mm_dd", MagicMock(return_value="2024-02-03")
     )
-    monkeypatch.setattr(
-        ioc_extract,
-        "analyze_threat_article",
-        MagicMock(side_effect=["### IoCs\n| Type | Value | Context |", "ja"]),
-    )
-    monkeypatch.setattr(ioc_extract, "MISPObject", MagicMock())
 
     iocs = {
         "urls": {"http://evil.test"},
@@ -174,10 +168,11 @@ def test_create_misp_event_object_adds_attributes(monkeypatch):
         category="Payload installation",
         to_ids=True,
     )
-    mock_event.add_attribute.assert_any_call(
-        type="comment", value="body", category="Other", to_ids=False
-    )
-    assert mock_event.add_attribute.call_count == 8
+    # The raw-article "comment" attribute and both AI event_reports are
+    # currently commented out in create_misp_event_object (see AGENTS.md).
+    # 7 = source url + url + ip + hostname + md5 + sha1 + chrome-extension-id.
+    # The 65-char hash has no MISP type and is skipped.
+    assert mock_event.add_attribute.call_count == 7
 
 
 def test_trim_to_ioc_section_cuts_before_heading():
@@ -214,26 +209,16 @@ def test_parse_ioc_rows_filters_and_maps():
     ]
 
 
-def test_create_misp_event_object_adds_iocs_from_table(monkeypatch):
+def test_create_misp_event_object_emits_no_ai_reports(monkeypatch):
+    """LLM enrichment is intentionally disabled in create_misp_event_object.
+
+    If someone re-enables analyze_threat_article / add_event_report, this test
+    fails and forces the AI-path tests (and AGENTS.md) to be updated with it.
+    """
     mock_event = MagicMock()
     monkeypatch.setattr(ioc_extract, "MISPEvent", MagicMock(return_value=mock_event))
     monkeypatch.setattr(
         ioc_extract, "to_yyyy_mm_dd", MagicMock(return_value="2024-02-03")
-    )
-    obj = MagicMock()
-    monkeypatch.setattr(ioc_extract, "MISPObject", MagicMock(return_value=obj))
-    ai_summary = """### Title
-    something
-    ### IoCs
-    | Type | Value | Context |
-    |---|---|---|
-    | File path | C:\\evil\\a.exe | dropper |
-    | Command or process | powershell.exe -enc aaa | persistence |
-    """
-    monkeypatch.setattr(
-        ioc_extract,
-        "analyze_threat_article",
-        MagicMock(side_effect=[ai_summary, "translated"]),
     )
 
     article = {"date": "ignored", "url": "http://source", "content": "body"}
@@ -242,20 +227,11 @@ def test_create_misp_event_object_adds_iocs_from_table(monkeypatch):
     event = ioc_extract.create_misp_event_object(article, "info", iocs)
 
     assert event is mock_event
-    obj.add_attribute.assert_called_once_with('command_line', 'powershell.exe -enc aaa')
-    assert obj.comment == "persistence"
-    mock_event.add_object.assert_called_once_with(obj)
-    mock_event.add_attribute.assert_any_call(
-        category="Persistence mechanism",
-        type="filename",
-        value="C:\\evil\\a.exe",
-        comment="dropper",
-    )
-    mock_event.add_event_report.assert_any_call(
-        name="[en]_info", content=ioc_extract.trim_markdown_fence(ai_summary), distribution=0
-    )
-    mock_event.add_event_report.assert_any_call(
-        name="[jp]_info", content="translated", distribution=0
+    assert not hasattr(ioc_extract, "analyze_threat_article")
+    mock_event.add_event_report.assert_not_called()
+    mock_event.add_object.assert_not_called()
+    mock_event.add_attribute.assert_called_once_with(
+        type="url", value="http://source", category="External analysis", to_ids=False
     )
 
 

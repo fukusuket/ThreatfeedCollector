@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import streamlit as st
-import pandas as pd
 from datetime import datetime, timedelta
 from pymisp import PyMISP
 from dotenv import load_dotenv
@@ -35,8 +34,9 @@ font_css = """
 </style>
 """
 
-st.markdown(font_css, unsafe_allow_html=True)
 st.set_page_config(page_title="Threat Intelligence Dashboard", layout="wide")
+# Static CSS only. Never pass feed/LLM/MISP-derived text through unsafe_allow_html.
+st.markdown(font_css, unsafe_allow_html=True)
 
 def defang(value: str) -> str:
     """Neutralize dangerous IOCs (url/ip/domain) for safe display."""

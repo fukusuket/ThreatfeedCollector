@@ -414,7 +414,11 @@ def main() -> None:
     cutoff_date = datetime.now() - timedelta(days=DAYS_BACK)
 
     def _process_vendor_feed(row: List[str]) -> str:
-        vendor, feed_url, blog_url, crawl_links = row
+        # The reader accepts rows with >= 2 columns, and README documents a
+        # 3-column form, so pad instead of unpacking a fixed width.
+        vendor, feed_url = row[0].strip(), row[1].strip()
+        blog_url = row[2].strip() if len(row) > 2 else ""
+        crawl_links = row[3].strip() if len(row) > 3 else ""
         logger.info(f"Processing vendor: {vendor}")
         should_crawl_links = str(crawl_links).lower() == "true"
         crawl_same_domain = False
