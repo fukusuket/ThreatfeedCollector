@@ -218,6 +218,41 @@ def test_create_misp_event_object_adds_onion_attribute(monkeypatch):
     )
 
 
+def test_extract_iocs_keeps_valid_onion_out_of_fqdns(monkeypatch, reset_warning_lists):
+    """A v3 onion is written as onion-address only, never also as a hostname."""
+    monkeypatch.setattr(
+        ioc_extract,
+        "iocextract",
+        types.SimpleNamespace(
+            extract_hashes=lambda t: [],
+            extract_urls=lambda t, refang=True: [f"http://{VALID_ONION}.onion/gate"],
+            extract_ipv4s=lambda t, refang=True: [],
+        ),
+    )
+    result = ioc_extract.extract_iocs_from_content(
+        f"leak site: {VALID_ONION}[.]onion/gate"
+    )
+    assert result["onion_addresses"] == {f"{VALID_ONION}.onion"}
+    assert result["fqdns"] == set()
+
+
+def test_extract_iocs_keeps_unverified_onion_as_fqdn(monkeypatch, reset_warning_lists):
+    """v2 onions are not written as onion-address, so they must stay fqdns."""
+    v2 = "expyuzz4wqqyqhjn.onion"
+    monkeypatch.setattr(
+        ioc_extract,
+        "iocextract",
+        types.SimpleNamespace(
+            extract_hashes=lambda t: [],
+            extract_urls=lambda t, refang=True: [f"http://{v2}/gate"],
+            extract_ipv4s=lambda t, refang=True: [],
+        ),
+    )
+    result = ioc_extract.extract_iocs_from_content("leak site: expyuzz4wqqyqhjn[.]onion")
+    assert result["onion_addresses"] == set()
+    assert result["fqdns"] == {v2}
+
+
 def test_is_valid_btc_address_accepts_known_good():
     assert ioc_extract.is_valid_btc_address(BTC_P2PKH) is True
     assert ioc_extract.is_valid_btc_address(BTC_P2SH) is True

@@ -356,6 +356,12 @@ def extract_iocs_from_content(text: str) -> Dict[str, Set[str]]:
                 continue
 
         iocs["fqdns"] = {d for d in domains if is_suspicious_domain(d)}
+        # An onion address already written as `onion-address` must not also be
+        # written as a `hostname`. Only checksum-valid v3 addresses are removed,
+        # so anything not captured above (e.g. v2) still ships as an fqdn.
+        iocs["fqdns"] -= {
+            d for d in iocs["fqdns"] if d.lower() in iocs["onion_addresses"]
+        }
         iocs["ips"] = {ip for ip in ip_addresses if is_global_ipv4(ip)}
 
     except Exception as e:

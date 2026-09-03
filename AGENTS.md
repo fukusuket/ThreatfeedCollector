@@ -54,7 +54,7 @@ Each gate yields a verdict from a single command.
 # Gate 1 — Lint (must be clean)
 python3 -m ruff check .
 
-# Gate 2 — Unit tests (must be 69 passed)
+# Gate 2 — Unit tests (must be 71 passed)
 python3 -m pytest -q
 
 # Gate 3 — Security invariant counts (must match the §4 baseline)
@@ -159,7 +159,7 @@ Stop and ask before doing any of these:
 - Filter order: `COMMON_DOMAINS` → `pymispwarninglists` (slow_search) → `ipaddress.is_global` → CDN/DNS warning-list name matching.
 - Chrome extension IDs match `[a-p]{32}`.
 - CVE IDs match `CVE-(19|20)\d{2}-\d{4,7}` (case-insensitive, normalized to upper case) and are scanned from the full text. They are written as `vulnerability` / `External analysis` / `to_ids=False`.
-- v3 onion addresses are accepted only when the embedded ed25519 checksum verifies (`is_valid_onion_v3`); `[.]onion` defanging is refanged first, and v2 (16-char) addresses are rejected. Written as `onion-address` / `Network activity` / `to_ids=True`.
+- v3 onion addresses are accepted only when the embedded ed25519 checksum verifies (`is_valid_onion_v3`); `[.]onion` defanging is refanged first, and v2 (16-char) addresses are rejected. Written as `onion-address` / `Network activity` / `to_ids=True`. A v3 address accepted here is removed from `fqdns`, so it is never also written as a `hostname`; addresses that fail verification (e.g. v2) stay in `fqdns`. Because `fqdns` feeds `EVENT_TRIGGER_IOC_KEYS`, a verified onion no longer counts toward event creation.
 - Bitcoin addresses are accepted only when their checksum verifies (`is_valid_btc_address`): Base58Check with a mainnet version byte (`0x00`/`0x05`), or bech32/bech32m with the BIP-173/BIP-350 polymod for the witness version. Testnet and mixed-case bech32 are rejected. Written as `btc` / `Financial fraud` / `to_ids=False`.
 - Monero addresses are matched on prefix (`4`/`8` + `[0-9AB]`), base58 alphabet and exact length (95 or 106). The Keccak-256 checksum is **not** verified: it is unavailable in `hashlib` (`sha3_256` is a different algorithm) and adding a dependency for it was rejected. Written as `xmr` / `Financial fraud` / `to_ids=False`.
 - These four kinds (CVE, onion, btc, xmr) are display-safe as-is, so `app.py` does not defang them; none are rendered as links by `st.markdown`.
