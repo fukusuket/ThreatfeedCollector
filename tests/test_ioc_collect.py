@@ -306,6 +306,38 @@ def test_process_article_needs_enough_iocs(monkeypatch):
     assert ioc_collect.process_article(misp, {"url": "u", "title": "t"}, "v") is False
 
 
+def test_process_article_ignores_non_trigger_ioc_kinds(monkeypatch):
+    """Only network IoC kinds may trigger event creation.
+
+    Context IoCs (CVE, wallet addresses, ...) are written to the event but must
+    never create one on their own, however many of them an article contains.
+    """
+    misp = MagicMock()
+    misp.search.return_value = []
+    monkeypatch.setattr(
+        ioc_collect,
+        "fetch_full_content",
+        MagicMock(return_value=[{"url": "u", "content": "body"}]),
+    )
+    monkeypatch.setattr(
+        ioc_collect,
+        "extract_iocs_from_content",
+        MagicMock(
+            return_value={
+                "urls": {"a"},
+                "ips": set(),
+                "hashes": set(),
+                "fqdns": set(),
+                "browser_extensions": set(),
+                "cves": {"CVE-2024-0001", "CVE-2024-0002", "CVE-2024-0003"},
+                "btc_addresses": {"addr1", "addr2"},
+            }
+        ),
+    )
+    monkeypatch.setattr(ioc_collect, "add_event_to_misp", MagicMock(return_value=True))
+    assert ioc_collect.process_article(misp, {"url": "u", "title": "t"}, "v") is False
+
+
 def test_save_stats_writes_csv(monkeypatch, tmp_path):
     event = SimpleNamespace(
         info="[v] title",

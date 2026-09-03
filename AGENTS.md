@@ -54,7 +54,7 @@ Each gate yields a verdict from a single command.
 # Gate 1 — Lint (must be clean)
 python3 -m ruff check .
 
-# Gate 2 — Unit tests (must be 52 passed)
+# Gate 2 — Unit tests (must be 53 passed)
 python3 -m pytest -q
 
 # Gate 3 — Security invariant counts (must match the §4 baseline)
@@ -158,5 +158,5 @@ Stop and ask before doing any of these:
 - Only **defanged** IoCs (`[.]`, `hxxp`, `[://]`) are extracted as URLs/IPs. Hashes and Chrome extension IDs are scanned from the full text.
 - Filter order: `COMMON_DOMAINS` → `pymispwarninglists` (slow_search) → `ipaddress.is_global` → CDN/DNS warning-list name matching.
 - Chrome extension IDs match `[a-p]{32}`.
-- A MISP event is created only when the **non-hash IoC count is > 2** (`process_article`).
+- A MISP event is created only when the count of IoCs in `EVENT_TRIGGER_IOC_KEYS` (`urls`, `ips`, `fqdns`, `browser_extensions`) is **> 2** (`process_article`). Other kinds are written to the event but never trigger its creation.
 - Duplicate detection checks both the event title and the `External analysis` url attribute.
