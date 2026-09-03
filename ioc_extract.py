@@ -49,6 +49,13 @@ BTC_BECH32_PATTERN = re.compile(
     r"(?<![0-9A-Za-z])bc1[02-9ac-hj-np-z]{11,71}(?![0-9A-Za-z])", re.IGNORECASE
 )
 BECH32_CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
+# Monero mainnet: standard/subaddress (95 chars) and integrated (106 chars).
+# The Keccak-256 checksum is not verifiable with hashlib alone, so the prefix,
+# alphabet and exact length carry the precision here.
+XMR_PATTERN = re.compile(
+    r"(?<![0-9A-Za-z])[48][0-9AB][1-9A-HJ-NP-Za-km-z]{93}(?:[1-9A-HJ-NP-Za-km-z]{11})?"
+    r"(?![0-9A-Za-z])"
+)
 
 def _load_set_from_file(path: Path) -> Set[str]:
     try:
@@ -280,6 +287,16 @@ def extract_btc_addresses(text: str) -> Set[str]:
     return {c for c in candidates if is_valid_btc_address(c)}
 
 
+def is_valid_xmr_address(address: str) -> bool:
+    """Check a Monero address by prefix, alphabet and exact length."""
+    return bool(XMR_PATTERN.fullmatch(address)) and len(address) in (95, 106)
+
+
+def extract_xmr_addresses(text: str) -> Set[str]:
+    """Extract well-formed Monero mainnet addresses."""
+    return {m for m in XMR_PATTERN.findall(text) if is_valid_xmr_address(m)}
+
+
 def extract_iocs_from_content(text: str) -> Dict[str, Set[str]]:
     iocs = {
         "urls": set(),
@@ -290,6 +307,7 @@ def extract_iocs_from_content(text: str) -> Dict[str, Set[str]]:
         "cves": set(),
         "onion_addresses": set(),
         "btc_addresses": set(),
+        "xmr_addresses": set(),
     }
     if not text:
         return iocs
@@ -301,6 +319,7 @@ def extract_iocs_from_content(text: str) -> Dict[str, Set[str]]:
         iocs["cves"] = extract_cves(text)
         iocs["onion_addresses"] = extract_onion_addresses(text)
         iocs["btc_addresses"] = extract_btc_addresses(text)
+        iocs["xmr_addresses"] = extract_xmr_addresses(text)
 
         defanged_lines = "\n".join(
             line for line in text.splitlines() if "[.]" in line or "[://]" in line
@@ -387,6 +406,15 @@ def _add_extracted_ioc_attributes(event: MISPEvent, iocs: Dict[str, Set[str]]) -
                         to_ids=False,
                     )
                     logger.info(f"Added btc address: {ioc_value}")
+                    continue
+                elif ioc_type == "xmr_addresses":
+                    event.add_attribute(
+                        type="xmr",
+                        value=ioc_value,
+                        category="Financial fraud",
+                        to_ids=False,
+                    )
+                    logger.info(f"Added xmr address: {ioc_value}")
                     continue
                 elif ioc_type == "browser_extensions":
                     event.add_attribute(

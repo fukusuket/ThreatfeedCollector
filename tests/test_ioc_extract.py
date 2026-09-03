@@ -122,6 +122,7 @@ def test_extract_iocs_ignores_empty():
         "cves": set(),
         "onion_addresses": set(),
         "btc_addresses": set(),
+        "xmr_addresses": set(),
     }
 
 
@@ -164,6 +165,13 @@ BTC_P2PKH = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"
 BTC_P2SH = "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"
 BTC_BECH32 = "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"
 BTC_BECH32M = "bc1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqzk5jj0"
+# Public Monero donation address (getmonero.org), 95 chars.
+XMR_ADDRESS = (
+    "888tNkZrPN6JsEgekjMnABU4TBzc2Dt29EPAvkRxbANsAnjy"
+    "Pbb3iQ1YBRk1UXcdRsiKc9dhwMVgN5S9cQUiyoogDavup3H"
+)
+
+
 def test_is_valid_onion_v3_accepts_checksum_match():
     assert ioc_extract.is_valid_onion_v3(VALID_ONION) is True
     assert ioc_extract.is_valid_onion_v3(f"{VALID_ONION}.onion") is True
@@ -264,6 +272,49 @@ def test_create_misp_event_object_adds_btc_attribute(monkeypatch):
 
     mock_event.add_attribute.assert_any_call(
         type="btc", value=BTC_P2PKH, category="Financial fraud", to_ids=False
+    )
+
+
+def test_is_valid_xmr_address_accepts_known_lengths():
+    assert len(XMR_ADDRESS) == 95
+    assert ioc_extract.is_valid_xmr_address(XMR_ADDRESS) is True
+    integrated = "4A" + XMR_ADDRESS[2:] + "1" * 11
+    assert len(integrated) == 106
+    assert ioc_extract.is_valid_xmr_address(integrated) is True
+
+
+def test_is_valid_xmr_address_rejects_wrong_shape():
+    assert ioc_extract.is_valid_xmr_address(XMR_ADDRESS[:-1]) is False  # 94 chars
+    assert ioc_extract.is_valid_xmr_address(XMR_ADDRESS + "A") is False  # 96 chars
+    assert ioc_extract.is_valid_xmr_address("5" + XMR_ADDRESS[1:]) is False  # prefix
+    assert ioc_extract.is_valid_xmr_address("8C" + XMR_ADDRESS[2:]) is False  # 2nd char
+    # 0, O, I and l are not in the base58 alphabet
+    assert ioc_extract.is_valid_xmr_address(XMR_ADDRESS[:-1] + "0") is False
+
+
+def test_extract_xmr_addresses_ignores_adjacent_text():
+    text = f"""
+    wallet: {XMR_ADDRESS}
+    truncated: {XMR_ADDRESS[:-1]}
+    glued: prefix{XMR_ADDRESS}
+    """
+    assert ioc_extract.extract_xmr_addresses(text) == {XMR_ADDRESS}
+
+
+def test_create_misp_event_object_adds_xmr_attribute(monkeypatch):
+    mock_event = MagicMock()
+    monkeypatch.setattr(ioc_extract, "MISPEvent", MagicMock(return_value=mock_event))
+    monkeypatch.setattr(
+        ioc_extract, "to_yyyy_mm_dd", MagicMock(return_value="2024-02-03")
+    )
+    article = {"date": "ignored", "url": "http://source", "content": "body"}
+
+    ioc_extract.create_misp_event_object(
+        article, "info", {"xmr_addresses": {XMR_ADDRESS}}
+    )
+
+    mock_event.add_attribute.assert_any_call(
+        type="xmr", value=XMR_ADDRESS, category="Financial fraud", to_ids=False
     )
 
 
