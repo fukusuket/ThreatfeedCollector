@@ -1,3 +1,5 @@
+import base64
+import hashlib
 import ipaddress
 import re
 import logging
@@ -37,6 +39,8 @@ EXTENSION_ID_PATTERN = re.compile(r"[a-p]{32}")
 # Self-delimiting, structurally verifiable IoCs. These are scanned from the full
 # text (not only the defanged lines) because they are never defanged in practice.
 CVE_PATTERN = re.compile(r"\bCVE-(?:19|20)\d{2}-\d{4,7}\b", re.IGNORECASE)
+ONION_V3_PATTERN = re.compile(r"\b([a-z2-7]{56})\.onion\b", re.IGNORECASE)
+ONION_V3_CHECKSUM_SALT = b".onion checksum"
 
 def _load_set_from_file(path: Path) -> Set[str]:
     try:
@@ -164,6 +168,43 @@ def extract_cves(text: str) -> Set[str]:
     return {match.upper() for match in CVE_PATTERN.findall(text)}
 
 
+def is_valid_onion_v3(address: str) -> bool:
+    """Verify a v3 onion address against its embedded ed25519 checksum.
+
+    An address is base32(pubkey[32] || checksum[2] || version[1]), where the
+    checksum is sha3-256(".onion checksum" || pubkey || version)[:2]. v2
+    addresses carry no checksum and are deliberately not accepted.
+    """
+    label = address.lower().removesuffix(".onion")
+    if len(label) != 56:
+        return False
+    try:
+        decoded = base64.b32decode(label.upper())
+    except Exception as e:
+        logger.debug(f"Failed to decode onion address {label}: {e}")
+        return False
+    if len(decoded) != 35:
+        return False
+    pubkey, checksum, version = decoded[:32], decoded[32:34], decoded[34:]
+    if version != b"\x03":
+        return False
+    expected = hashlib.sha3_256(ONION_V3_CHECKSUM_SALT + pubkey + version).digest()[:2]
+    if checksum != expected:
+        logger.info(f"Excluding onion address with bad checksum: {label}")
+        return False
+    return True
+
+
+def extract_onion_addresses(text: str) -> Set[str]:
+    """Extract checksum-valid v3 onion addresses, including defanged ones."""
+    refanged = text.replace("[.]", ".")
+    return {
+        f"{match.lower()}.onion"
+        for match in ONION_V3_PATTERN.findall(refanged)
+        if is_valid_onion_v3(match)
+    }
+
+
 def extract_iocs_from_content(text: str) -> Dict[str, Set[str]]:
     iocs = {
         "urls": set(),
@@ -172,6 +213,7 @@ def extract_iocs_from_content(text: str) -> Dict[str, Set[str]]:
         "hashes": set(),
         "browser_extensions": set(),
         "cves": set(),
+        "onion_addresses": set(),
     }
     if not text:
         return iocs
@@ -181,6 +223,7 @@ def extract_iocs_from_content(text: str) -> Dict[str, Set[str]]:
         iocs["hashes"] = {h for h in hashes if len(h) in [32, 40, 64, 128]}
         iocs["browser_extensions"] = set(EXTENSION_ID_PATTERN.findall(text or ""))
         iocs["cves"] = extract_cves(text)
+        iocs["onion_addresses"] = extract_onion_addresses(text)
 
         defanged_lines = "\n".join(
             line for line in text.splitlines() if "[.]" in line or "[://]" in line
@@ -249,6 +292,15 @@ def _add_extracted_ioc_attributes(event: MISPEvent, iocs: Dict[str, Set[str]]) -
                         to_ids=False,
                     )
                     logger.info(f"Added CVE: {ioc_value}")
+                    continue
+                elif ioc_type == "onion_addresses":
+                    event.add_attribute(
+                        type="onion-address",
+                        value=ioc_value,
+                        category="Network activity",
+                        to_ids=True,
+                    )
+                    logger.info(f"Added onion address: {ioc_value}")
                     continue
                 elif ioc_type == "browser_extensions":
                     event.add_attribute(

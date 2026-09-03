@@ -120,6 +120,7 @@ def test_extract_iocs_ignores_empty():
         "hashes": set(),
         "browser_extensions": set(),
         "cves": set(),
+        "onion_addresses": set(),
     }
 
 
@@ -152,6 +153,54 @@ def test_extract_iocs_collects_cves(monkeypatch, reset_warning_lists):
     )
     result = ioc_extract.extract_iocs_from_content("patched in CVE-2024-3400 advisory")
     assert result["cves"] == {"CVE-2024-3400"}
+
+
+VALID_ONION = "aaaqeayeaudaocajbifqydiob4ibceqtcqkrmfyydenbwha5dyp3kead"
+
+def test_is_valid_onion_v3_accepts_checksum_match():
+    assert ioc_extract.is_valid_onion_v3(VALID_ONION) is True
+    assert ioc_extract.is_valid_onion_v3(f"{VALID_ONION}.onion") is True
+    assert ioc_extract.is_valid_onion_v3(f"{VALID_ONION}.onion".upper()) is True
+
+
+def test_is_valid_onion_v3_rejects_bad_checksum_and_v2():
+    # single character flipped inside the public key part
+    tampered = "b" + VALID_ONION[1:]
+    assert ioc_extract.is_valid_onion_v3(tampered) is False
+    # v2 addresses (16 chars) carry no checksum and are not accepted
+    assert ioc_extract.is_valid_onion_v3("expyuzz4wqqyqhjn.onion") is False
+    # not base32 at all
+    assert ioc_extract.is_valid_onion_v3("8" * 56) is False
+
+
+def test_extract_onion_addresses_requires_suffix_and_refangs():
+    text = f"""
+    c2: {VALID_ONION}[.]onion
+    mirror: {VALID_ONION.upper()}.onion
+    not an address: {VALID_ONION}
+    tampered: b{VALID_ONION[1:]}.onion
+    """
+    assert ioc_extract.extract_onion_addresses(text) == {f"{VALID_ONION}.onion"}
+
+
+def test_create_misp_event_object_adds_onion_attribute(monkeypatch):
+    mock_event = MagicMock()
+    monkeypatch.setattr(ioc_extract, "MISPEvent", MagicMock(return_value=mock_event))
+    monkeypatch.setattr(
+        ioc_extract, "to_yyyy_mm_dd", MagicMock(return_value="2024-02-03")
+    )
+    article = {"date": "ignored", "url": "http://source", "content": "body"}
+
+    ioc_extract.create_misp_event_object(
+        article, "info", {"onion_addresses": {f"{VALID_ONION}.onion"}}
+    )
+
+    mock_event.add_attribute.assert_any_call(
+        type="onion-address",
+        value=f"{VALID_ONION}.onion",
+        category="Network activity",
+        to_ids=True,
+    )
 
 
 def test_create_misp_event_object_adds_cve_attribute(monkeypatch):
