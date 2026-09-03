@@ -121,6 +121,7 @@ def test_extract_iocs_ignores_empty():
         "browser_extensions": set(),
         "cves": set(),
         "onion_addresses": set(),
+        "btc_addresses": set(),
     }
 
 
@@ -157,6 +158,12 @@ def test_extract_iocs_collects_cves(monkeypatch, reset_warning_lists):
 
 VALID_ONION = "aaaqeayeaudaocajbifqydiob4ibceqtcqkrmfyydenbwha5dyp3kead"
 
+# Addresses below come from public references (Bitcoin genesis output, BIP-173
+# and BIP-350 test vectors), not from the implementation.
+BTC_P2PKH = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"
+BTC_P2SH = "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"
+BTC_BECH32 = "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"
+BTC_BECH32M = "bc1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqzk5jj0"
 def test_is_valid_onion_v3_accepts_checksum_match():
     assert ioc_extract.is_valid_onion_v3(VALID_ONION) is True
     assert ioc_extract.is_valid_onion_v3(f"{VALID_ONION}.onion") is True
@@ -200,6 +207,63 @@ def test_create_misp_event_object_adds_onion_attribute(monkeypatch):
         value=f"{VALID_ONION}.onion",
         category="Network activity",
         to_ids=True,
+    )
+
+
+def test_is_valid_btc_address_accepts_known_good():
+    assert ioc_extract.is_valid_btc_address(BTC_P2PKH) is True
+    assert ioc_extract.is_valid_btc_address(BTC_P2SH) is True
+    assert ioc_extract.is_valid_btc_address(BTC_BECH32) is True
+    assert ioc_extract.is_valid_btc_address(BTC_BECH32M) is True
+    assert ioc_extract.is_valid_btc_address(BTC_BECH32.upper()) is True
+
+
+def test_is_valid_btc_address_rejects_tampered_and_non_mainnet():
+    # last character changed -> checksum mismatch
+    assert ioc_extract.is_valid_btc_address(BTC_P2PKH[:-1] + "b") is False
+    assert ioc_extract.is_valid_btc_address(BTC_BECH32[:-1] + "5") is False
+    assert ioc_extract.is_valid_btc_address(BTC_BECH32M[:-1] + "1") is False
+    # testnet
+    assert (
+        ioc_extract.is_valid_btc_address(
+            "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kg3g4ty"
+        )
+        is False
+    )
+    # bech32 forbids mixed case
+    assert (
+        ioc_extract.is_valid_btc_address(
+            "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7KV8f3t4"
+        )
+        is False
+    )
+
+
+def test_extract_btc_addresses_ignores_hashes_and_random_words():
+    text = f"""
+    ransom: {BTC_P2PKH} and {BTC_BECH32}
+    sha256: {"d" * 64}
+    md5: {"a" * 32}
+    word: {"a" * 34}
+    tampered: {BTC_P2PKH[:-1]}b
+    """
+    assert ioc_extract.extract_btc_addresses(text) == {BTC_P2PKH, BTC_BECH32}
+
+
+def test_create_misp_event_object_adds_btc_attribute(monkeypatch):
+    mock_event = MagicMock()
+    monkeypatch.setattr(ioc_extract, "MISPEvent", MagicMock(return_value=mock_event))
+    monkeypatch.setattr(
+        ioc_extract, "to_yyyy_mm_dd", MagicMock(return_value="2024-02-03")
+    )
+    article = {"date": "ignored", "url": "http://source", "content": "body"}
+
+    ioc_extract.create_misp_event_object(
+        article, "info", {"btc_addresses": {BTC_P2PKH}}
+    )
+
+    mock_event.add_attribute.assert_any_call(
+        type="btc", value=BTC_P2PKH, category="Financial fraud", to_ids=False
     )
 
 

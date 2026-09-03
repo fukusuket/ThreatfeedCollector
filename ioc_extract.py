@@ -41,6 +41,14 @@ EXTENSION_ID_PATTERN = re.compile(r"[a-p]{32}")
 CVE_PATTERN = re.compile(r"\bCVE-(?:19|20)\d{2}-\d{4,7}\b", re.IGNORECASE)
 ONION_V3_PATTERN = re.compile(r"\b([a-z2-7]{56})\.onion\b", re.IGNORECASE)
 ONION_V3_CHECKSUM_SALT = b".onion checksum"
+BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+BTC_BASE58_PATTERN = re.compile(
+    r"(?<![0-9A-Za-z])[13][1-9A-HJ-NP-Za-km-z]{25,39}(?![0-9A-Za-z])"
+)
+BTC_BECH32_PATTERN = re.compile(
+    r"(?<![0-9A-Za-z])bc1[02-9ac-hj-np-z]{11,71}(?![0-9A-Za-z])", re.IGNORECASE
+)
+BECH32_CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 
 def _load_set_from_file(path: Path) -> Set[str]:
     try:
@@ -205,6 +213,73 @@ def extract_onion_addresses(text: str) -> Set[str]:
     }
 
 
+def _base58_decode(value: str) -> Optional[bytes]:
+    number = 0
+    for char in value:
+        index = BASE58_ALPHABET.find(char)
+        if index < 0:
+            return None
+        number = number * 58 + index
+    decoded = number.to_bytes((number.bit_length() + 7) // 8, "big")
+    leading_zeros = len(value) - len(value.lstrip("1"))
+    return b"\x00" * leading_zeros + decoded
+
+
+def _bech32_checksum_const(data: str) -> int:
+    """Return the polymod constant for the bech32 variant of `data`, or 0."""
+    generator = [0x3B6A57B2, 0x26508E6D, 0x1EA119FA, 0x3D4233DD, 0x2A1462B3]
+    values = [ord(c) >> 5 for c in "bc"] + [0] + [ord(c) & 31 for c in "bc"]
+    values += [BECH32_CHARSET.index(c) for c in data]
+    checksum = 1
+    for value in values:
+        top = checksum >> 25
+        checksum = ((checksum & 0x1FFFFFF) << 5) ^ value
+        for i in range(5):
+            checksum ^= generator[i] if ((top >> i) & 1) else 0
+    return checksum
+
+
+def is_valid_btc_address(address: str) -> bool:
+    """Verify a mainnet Bitcoin address against its checksum.
+
+    Base58Check addresses must carry a valid double-SHA256 checksum and a
+    mainnet version byte; bech32/bech32m addresses must satisfy the BIP-173 /
+    BIP-350 polymod for their witness version.
+    """
+    if BTC_BASE58_PATTERN.fullmatch(address):
+        decoded = _base58_decode(address)
+        if decoded is None or len(decoded) != 25:
+            return False
+        if decoded[0] not in (0x00, 0x05):
+            return False
+        expected = hashlib.sha256(hashlib.sha256(decoded[:21]).digest()).digest()[:4]
+        if decoded[21:] != expected:
+            logger.info(f"Excluding btc address with bad checksum: {address}")
+            return False
+        return True
+    if BTC_BECH32_PATTERN.fullmatch(address):
+        lowered = address.lower()
+        if address != lowered and address != address.upper():
+            return False  # bech32 forbids mixed case
+        data = lowered[3:]  # strip the "bc1" hrp and separator
+        if any(c not in BECH32_CHARSET for c in data):
+            return False
+        witness_version = BECH32_CHARSET.index(data[0])
+        expected = 1 if witness_version == 0 else 0x2BC830A3
+        if _bech32_checksum_const(data) != expected:
+            logger.info(f"Excluding btc address with bad checksum: {address}")
+            return False
+        return True
+    return False
+
+
+def extract_btc_addresses(text: str) -> Set[str]:
+    """Extract checksum-valid mainnet Bitcoin addresses."""
+    candidates = set(BTC_BASE58_PATTERN.findall(text))
+    candidates |= set(BTC_BECH32_PATTERN.findall(text))
+    return {c for c in candidates if is_valid_btc_address(c)}
+
+
 def extract_iocs_from_content(text: str) -> Dict[str, Set[str]]:
     iocs = {
         "urls": set(),
@@ -214,6 +289,7 @@ def extract_iocs_from_content(text: str) -> Dict[str, Set[str]]:
         "browser_extensions": set(),
         "cves": set(),
         "onion_addresses": set(),
+        "btc_addresses": set(),
     }
     if not text:
         return iocs
@@ -224,6 +300,7 @@ def extract_iocs_from_content(text: str) -> Dict[str, Set[str]]:
         iocs["browser_extensions"] = set(EXTENSION_ID_PATTERN.findall(text or ""))
         iocs["cves"] = extract_cves(text)
         iocs["onion_addresses"] = extract_onion_addresses(text)
+        iocs["btc_addresses"] = extract_btc_addresses(text)
 
         defanged_lines = "\n".join(
             line for line in text.splitlines() if "[.]" in line or "[://]" in line
@@ -301,6 +378,15 @@ def _add_extracted_ioc_attributes(event: MISPEvent, iocs: Dict[str, Set[str]]) -
                         to_ids=True,
                     )
                     logger.info(f"Added onion address: {ioc_value}")
+                    continue
+                elif ioc_type == "btc_addresses":
+                    event.add_attribute(
+                        type="btc",
+                        value=ioc_value,
+                        category="Financial fraud",
+                        to_ids=False,
+                    )
+                    logger.info(f"Added btc address: {ioc_value}")
                     continue
                 elif ioc_type == "browser_extensions":
                     event.add_attribute(
