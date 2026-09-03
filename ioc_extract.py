@@ -34,6 +34,10 @@ URL_REGEX = re.compile(
 
 EXTENSION_ID_PATTERN = re.compile(r"[a-p]{32}")
 
+# Self-delimiting, structurally verifiable IoCs. These are scanned from the full
+# text (not only the defanged lines) because they are never defanged in practice.
+CVE_PATTERN = re.compile(r"\bCVE-(?:19|20)\d{2}-\d{4,7}\b", re.IGNORECASE)
+
 def _load_set_from_file(path: Path) -> Set[str]:
     try:
         with path.open("r", encoding="utf-8") as f:
@@ -155,6 +159,11 @@ def _trim_to_ioc_section(markdown_text: str) -> str:
     return "\n".join(lines[start_idx:]).strip()
 
 
+def extract_cves(text: str) -> Set[str]:
+    """Extract CVE IDs, normalized to upper case."""
+    return {match.upper() for match in CVE_PATTERN.findall(text)}
+
+
 def extract_iocs_from_content(text: str) -> Dict[str, Set[str]]:
     iocs = {
         "urls": set(),
@@ -162,6 +171,7 @@ def extract_iocs_from_content(text: str) -> Dict[str, Set[str]]:
         "fqdns": set(),
         "hashes": set(),
         "browser_extensions": set(),
+        "cves": set(),
     }
     if not text:
         return iocs
@@ -170,6 +180,7 @@ def extract_iocs_from_content(text: str) -> Dict[str, Set[str]]:
         hashes = set(iocextract.extract_hashes(text))
         iocs["hashes"] = {h for h in hashes if len(h) in [32, 40, 64, 128]}
         iocs["browser_extensions"] = set(EXTENSION_ID_PATTERN.findall(text or ""))
+        iocs["cves"] = extract_cves(text)
 
         defanged_lines = "\n".join(
             line for line in text.splitlines() if "[.]" in line or "[://]" in line
@@ -230,6 +241,15 @@ def _add_extracted_ioc_attributes(event: MISPEvent, iocs: Dict[str, Set[str]]) -
                     attr_type = hash_types.get(len(ioc_value))
                     if not attr_type:
                         continue
+                elif ioc_type == "cves":
+                    event.add_attribute(
+                        type="vulnerability",
+                        value=ioc_value,
+                        category="External analysis",
+                        to_ids=False,
+                    )
+                    logger.info(f"Added CVE: {ioc_value}")
+                    continue
                 elif ioc_type == "browser_extensions":
                     event.add_attribute(
                         type="chrome-extension-id",

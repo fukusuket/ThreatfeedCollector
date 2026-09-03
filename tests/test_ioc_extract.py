@@ -119,7 +119,57 @@ def test_extract_iocs_ignores_empty():
         "fqdns": set(),
         "hashes": set(),
         "browser_extensions": set(),
+        "cves": set(),
     }
+
+
+def test_extract_cves_normalizes_case():
+    text = "Exploits cve-2024-3400 and CVE-1999-0001 (also CVE-2023-1234567)."
+    assert ioc_extract.extract_cves(text) == {
+        "CVE-2024-3400",
+        "CVE-1999-0001",
+        "CVE-2023-1234567",
+    }
+
+
+def test_extract_cves_rejects_malformed():
+    text = """
+    CVE-20-1234 CVE-2024-123 CVE-1899-1234 CVE-20244-1234
+    CVE-2024-12345678 XCVE-2024-1234 CVE2024-1234
+    """
+    assert ioc_extract.extract_cves(text) == set()
+
+
+def test_extract_iocs_collects_cves(monkeypatch, reset_warning_lists):
+    monkeypatch.setattr(
+        ioc_extract,
+        "iocextract",
+        types.SimpleNamespace(
+            extract_hashes=lambda t: [],
+            extract_urls=lambda t, refang=True: [],
+            extract_ipv4s=lambda t, refang=True: [],
+        ),
+    )
+    result = ioc_extract.extract_iocs_from_content("patched in CVE-2024-3400 advisory")
+    assert result["cves"] == {"CVE-2024-3400"}
+
+
+def test_create_misp_event_object_adds_cve_attribute(monkeypatch):
+    mock_event = MagicMock()
+    monkeypatch.setattr(ioc_extract, "MISPEvent", MagicMock(return_value=mock_event))
+    monkeypatch.setattr(
+        ioc_extract, "to_yyyy_mm_dd", MagicMock(return_value="2024-02-03")
+    )
+    article = {"date": "ignored", "url": "http://source", "content": "body"}
+
+    ioc_extract.create_misp_event_object(article, "info", {"cves": {"CVE-2024-3400"}})
+
+    mock_event.add_attribute.assert_any_call(
+        type="vulnerability",
+        value="CVE-2024-3400",
+        category="External analysis",
+        to_ids=False,
+    )
 
 
 def test_create_misp_event_object_adds_attributes(monkeypatch):
