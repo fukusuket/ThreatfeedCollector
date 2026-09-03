@@ -1,3 +1,5 @@
+import base64
+import hashlib
 import ipaddress
 import re
 import logging
@@ -33,6 +35,27 @@ URL_REGEX = re.compile(
 )
 
 EXTENSION_ID_PATTERN = re.compile(r"[a-p]{32}")
+
+# Self-delimiting, structurally verifiable IoCs. These are scanned from the full
+# text (not only the defanged lines) because they are never defanged in practice.
+CVE_PATTERN = re.compile(r"\bCVE-(?:19|20)\d{2}-\d{4,7}\b", re.IGNORECASE)
+ONION_V3_PATTERN = re.compile(r"\b([a-z2-7]{56})\.onion\b", re.IGNORECASE)
+ONION_V3_CHECKSUM_SALT = b".onion checksum"
+BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+BTC_BASE58_PATTERN = re.compile(
+    r"(?<![0-9A-Za-z])[13][1-9A-HJ-NP-Za-km-z]{25,39}(?![0-9A-Za-z])"
+)
+BTC_BECH32_PATTERN = re.compile(
+    r"(?<![0-9A-Za-z])bc1[02-9ac-hj-np-z]{11,71}(?![0-9A-Za-z])", re.IGNORECASE
+)
+BECH32_CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
+# Monero mainnet: standard/subaddress (95 chars) and integrated (106 chars).
+# The Keccak-256 checksum is not verifiable with hashlib alone, so the prefix,
+# alphabet and exact length carry the precision here.
+XMR_PATTERN = re.compile(
+    r"(?<![0-9A-Za-z])[48][0-9AB][1-9A-HJ-NP-Za-km-z]{93}(?:[1-9A-HJ-NP-Za-km-z]{11})?"
+    r"(?![0-9A-Za-z])"
+)
 
 def _load_set_from_file(path: Path) -> Set[str]:
     try:
@@ -155,6 +178,125 @@ def _trim_to_ioc_section(markdown_text: str) -> str:
     return "\n".join(lines[start_idx:]).strip()
 
 
+def extract_cves(text: str) -> Set[str]:
+    """Extract CVE IDs, normalized to upper case."""
+    return {match.upper() for match in CVE_PATTERN.findall(text)}
+
+
+def is_valid_onion_v3(address: str) -> bool:
+    """Verify a v3 onion address against its embedded ed25519 checksum.
+
+    An address is base32(pubkey[32] || checksum[2] || version[1]), where the
+    checksum is sha3-256(".onion checksum" || pubkey || version)[:2]. v2
+    addresses carry no checksum and are deliberately not accepted.
+    """
+    label = address.lower().removesuffix(".onion")
+    if len(label) != 56:
+        return False
+    try:
+        decoded = base64.b32decode(label.upper())
+    except Exception as e:
+        logger.debug(f"Failed to decode onion address {label}: {e}")
+        return False
+    if len(decoded) != 35:
+        return False
+    pubkey, checksum, version = decoded[:32], decoded[32:34], decoded[34:]
+    if version != b"\x03":
+        return False
+    expected = hashlib.sha3_256(ONION_V3_CHECKSUM_SALT + pubkey + version).digest()[:2]
+    if checksum != expected:
+        logger.info(f"Excluding onion address with bad checksum: {label}")
+        return False
+    return True
+
+
+def extract_onion_addresses(text: str) -> Set[str]:
+    """Extract checksum-valid v3 onion addresses, including defanged ones."""
+    refanged = text.replace("[.]", ".")
+    return {
+        f"{match.lower()}.onion"
+        for match in ONION_V3_PATTERN.findall(refanged)
+        if is_valid_onion_v3(match)
+    }
+
+
+def _base58_decode(value: str) -> Optional[bytes]:
+    number = 0
+    for char in value:
+        index = BASE58_ALPHABET.find(char)
+        if index < 0:
+            return None
+        number = number * 58 + index
+    decoded = number.to_bytes((number.bit_length() + 7) // 8, "big")
+    leading_zeros = len(value) - len(value.lstrip("1"))
+    return b"\x00" * leading_zeros + decoded
+
+
+def _bech32_checksum_const(data: str) -> int:
+    """Return the polymod constant for the bech32 variant of `data`, or 0."""
+    generator = [0x3B6A57B2, 0x26508E6D, 0x1EA119FA, 0x3D4233DD, 0x2A1462B3]
+    values = [ord(c) >> 5 for c in "bc"] + [0] + [ord(c) & 31 for c in "bc"]
+    values += [BECH32_CHARSET.index(c) for c in data]
+    checksum = 1
+    for value in values:
+        top = checksum >> 25
+        checksum = ((checksum & 0x1FFFFFF) << 5) ^ value
+        for i in range(5):
+            checksum ^= generator[i] if ((top >> i) & 1) else 0
+    return checksum
+
+
+def is_valid_btc_address(address: str) -> bool:
+    """Verify a mainnet Bitcoin address against its checksum.
+
+    Base58Check addresses must carry a valid double-SHA256 checksum and a
+    mainnet version byte; bech32/bech32m addresses must satisfy the BIP-173 /
+    BIP-350 polymod for their witness version.
+    """
+    if BTC_BASE58_PATTERN.fullmatch(address):
+        decoded = _base58_decode(address)
+        if decoded is None or len(decoded) != 25:
+            return False
+        if decoded[0] not in (0x00, 0x05):
+            return False
+        expected = hashlib.sha256(hashlib.sha256(decoded[:21]).digest()).digest()[:4]
+        if decoded[21:] != expected:
+            logger.info(f"Excluding btc address with bad checksum: {address}")
+            return False
+        return True
+    if BTC_BECH32_PATTERN.fullmatch(address):
+        lowered = address.lower()
+        if address != lowered and address != address.upper():
+            return False  # bech32 forbids mixed case
+        data = lowered[3:]  # strip the "bc1" hrp and separator
+        if any(c not in BECH32_CHARSET for c in data):
+            return False
+        witness_version = BECH32_CHARSET.index(data[0])
+        expected = 1 if witness_version == 0 else 0x2BC830A3
+        if _bech32_checksum_const(data) != expected:
+            logger.info(f"Excluding btc address with bad checksum: {address}")
+            return False
+        return True
+    return False
+
+
+def extract_btc_addresses(text: str) -> Set[str]:
+    """Extract checksum-valid mainnet Bitcoin addresses."""
+    candidates = set(BTC_BASE58_PATTERN.findall(text))
+    candidates |= set(BTC_BECH32_PATTERN.findall(text))
+    return {c for c in candidates if is_valid_btc_address(c)}
+
+
+def is_valid_xmr_address(address: str) -> bool:
+    """Check a Monero address by prefix, alphabet and exact length."""
+    return bool(XMR_PATTERN.fullmatch(address)) and len(address) in (95, 106)
+
+
+def extract_xmr_addresses(text: str) -> Set[str]:
+    """Extract well-formed Monero mainnet addresses."""
+    return {m for m in XMR_PATTERN.findall(text) if is_valid_xmr_address(m)}
+
+
 def extract_iocs_from_content(text: str) -> Dict[str, Set[str]]:
     iocs = {
         "urls": set(),
@@ -162,6 +304,10 @@ def extract_iocs_from_content(text: str) -> Dict[str, Set[str]]:
         "fqdns": set(),
         "hashes": set(),
         "browser_extensions": set(),
+        "cves": set(),
+        "onion_addresses": set(),
+        "btc_addresses": set(),
+        "xmr_addresses": set(),
     }
     if not text:
         return iocs
@@ -170,6 +316,10 @@ def extract_iocs_from_content(text: str) -> Dict[str, Set[str]]:
         hashes = set(iocextract.extract_hashes(text))
         iocs["hashes"] = {h for h in hashes if len(h) in [32, 40, 64, 128]}
         iocs["browser_extensions"] = set(EXTENSION_ID_PATTERN.findall(text or ""))
+        iocs["cves"] = extract_cves(text)
+        iocs["onion_addresses"] = extract_onion_addresses(text)
+        iocs["btc_addresses"] = extract_btc_addresses(text)
+        iocs["xmr_addresses"] = extract_xmr_addresses(text)
 
         defanged_lines = "\n".join(
             line for line in text.splitlines() if "[.]" in line or "[://]" in line
@@ -206,6 +356,12 @@ def extract_iocs_from_content(text: str) -> Dict[str, Set[str]]:
                 continue
 
         iocs["fqdns"] = {d for d in domains if is_suspicious_domain(d)}
+        # An onion address already written as `onion-address` must not also be
+        # written as a `hostname`. Only checksum-valid v3 addresses are removed,
+        # so anything not captured above (e.g. v2) still ships as an fqdn.
+        iocs["fqdns"] -= {
+            d for d in iocs["fqdns"] if d.lower() in iocs["onion_addresses"]
+        }
         iocs["ips"] = {ip for ip in ip_addresses if is_global_ipv4(ip)}
 
     except Exception as e:
@@ -230,6 +386,42 @@ def _add_extracted_ioc_attributes(event: MISPEvent, iocs: Dict[str, Set[str]]) -
                     attr_type = hash_types.get(len(ioc_value))
                     if not attr_type:
                         continue
+                elif ioc_type == "cves":
+                    event.add_attribute(
+                        type="vulnerability",
+                        value=ioc_value,
+                        category="External analysis",
+                        to_ids=False,
+                    )
+                    logger.info(f"Added CVE: {ioc_value}")
+                    continue
+                elif ioc_type == "onion_addresses":
+                    event.add_attribute(
+                        type="onion-address",
+                        value=ioc_value,
+                        category="Network activity",
+                        to_ids=True,
+                    )
+                    logger.info(f"Added onion address: {ioc_value}")
+                    continue
+                elif ioc_type == "btc_addresses":
+                    event.add_attribute(
+                        type="btc",
+                        value=ioc_value,
+                        category="Financial fraud",
+                        to_ids=False,
+                    )
+                    logger.info(f"Added btc address: {ioc_value}")
+                    continue
+                elif ioc_type == "xmr_addresses":
+                    event.add_attribute(
+                        type="xmr",
+                        value=ioc_value,
+                        category="Financial fraud",
+                        to_ids=False,
+                    )
+                    logger.info(f"Added xmr address: {ioc_value}")
+                    continue
                 elif ioc_type == "browser_extensions":
                     event.add_attribute(
                         type="chrome-extension-id",

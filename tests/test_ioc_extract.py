@@ -119,7 +119,256 @@ def test_extract_iocs_ignores_empty():
         "fqdns": set(),
         "hashes": set(),
         "browser_extensions": set(),
+        "cves": set(),
+        "onion_addresses": set(),
+        "btc_addresses": set(),
+        "xmr_addresses": set(),
     }
+
+
+def test_extract_cves_normalizes_case():
+    text = "Exploits cve-2024-3400 and CVE-1999-0001 (also CVE-2023-1234567)."
+    assert ioc_extract.extract_cves(text) == {
+        "CVE-2024-3400",
+        "CVE-1999-0001",
+        "CVE-2023-1234567",
+    }
+
+
+def test_extract_cves_rejects_malformed():
+    text = """
+    CVE-20-1234 CVE-2024-123 CVE-1899-1234 CVE-20244-1234
+    CVE-2024-12345678 XCVE-2024-1234 CVE2024-1234
+    """
+    assert ioc_extract.extract_cves(text) == set()
+
+
+def test_extract_iocs_collects_cves(monkeypatch, reset_warning_lists):
+    monkeypatch.setattr(
+        ioc_extract,
+        "iocextract",
+        types.SimpleNamespace(
+            extract_hashes=lambda t: [],
+            extract_urls=lambda t, refang=True: [],
+            extract_ipv4s=lambda t, refang=True: [],
+        ),
+    )
+    result = ioc_extract.extract_iocs_from_content("patched in CVE-2024-3400 advisory")
+    assert result["cves"] == {"CVE-2024-3400"}
+
+
+VALID_ONION = "aaaqeayeaudaocajbifqydiob4ibceqtcqkrmfyydenbwha5dyp3kead"
+
+# Addresses below come from public references (Bitcoin genesis output, BIP-173
+# and BIP-350 test vectors), not from the implementation.
+BTC_P2PKH = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"
+BTC_P2SH = "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"
+BTC_BECH32 = "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"
+BTC_BECH32M = "bc1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqzk5jj0"
+# Public Monero donation address (getmonero.org), 95 chars.
+XMR_ADDRESS = (
+    "888tNkZrPN6JsEgekjMnABU4TBzc2Dt29EPAvkRxbANsAnjy"
+    "Pbb3iQ1YBRk1UXcdRsiKc9dhwMVgN5S9cQUiyoogDavup3H"
+)
+
+
+def test_is_valid_onion_v3_accepts_checksum_match():
+    assert ioc_extract.is_valid_onion_v3(VALID_ONION) is True
+    assert ioc_extract.is_valid_onion_v3(f"{VALID_ONION}.onion") is True
+    assert ioc_extract.is_valid_onion_v3(f"{VALID_ONION}.onion".upper()) is True
+
+
+def test_is_valid_onion_v3_rejects_bad_checksum_and_v2():
+    # single character flipped inside the public key part
+    tampered = "b" + VALID_ONION[1:]
+    assert ioc_extract.is_valid_onion_v3(tampered) is False
+    # v2 addresses (16 chars) carry no checksum and are not accepted
+    assert ioc_extract.is_valid_onion_v3("expyuzz4wqqyqhjn.onion") is False
+    # not base32 at all
+    assert ioc_extract.is_valid_onion_v3("8" * 56) is False
+
+
+def test_extract_onion_addresses_requires_suffix_and_refangs():
+    text = f"""
+    c2: {VALID_ONION}[.]onion
+    mirror: {VALID_ONION.upper()}.onion
+    not an address: {VALID_ONION}
+    tampered: b{VALID_ONION[1:]}.onion
+    """
+    assert ioc_extract.extract_onion_addresses(text) == {f"{VALID_ONION}.onion"}
+
+
+def test_create_misp_event_object_adds_onion_attribute(monkeypatch):
+    mock_event = MagicMock()
+    monkeypatch.setattr(ioc_extract, "MISPEvent", MagicMock(return_value=mock_event))
+    monkeypatch.setattr(
+        ioc_extract, "to_yyyy_mm_dd", MagicMock(return_value="2024-02-03")
+    )
+    article = {"date": "ignored", "url": "http://source", "content": "body"}
+
+    ioc_extract.create_misp_event_object(
+        article, "info", {"onion_addresses": {f"{VALID_ONION}.onion"}}
+    )
+
+    mock_event.add_attribute.assert_any_call(
+        type="onion-address",
+        value=f"{VALID_ONION}.onion",
+        category="Network activity",
+        to_ids=True,
+    )
+
+
+def test_extract_iocs_keeps_valid_onion_out_of_fqdns(monkeypatch, reset_warning_lists):
+    """A v3 onion is written as onion-address only, never also as a hostname."""
+    monkeypatch.setattr(
+        ioc_extract,
+        "iocextract",
+        types.SimpleNamespace(
+            extract_hashes=lambda t: [],
+            extract_urls=lambda t, refang=True: [f"http://{VALID_ONION}.onion/gate"],
+            extract_ipv4s=lambda t, refang=True: [],
+        ),
+    )
+    result = ioc_extract.extract_iocs_from_content(
+        f"leak site: {VALID_ONION}[.]onion/gate"
+    )
+    assert result["onion_addresses"] == {f"{VALID_ONION}.onion"}
+    assert result["fqdns"] == set()
+
+
+def test_extract_iocs_keeps_unverified_onion_as_fqdn(monkeypatch, reset_warning_lists):
+    """v2 onions are not written as onion-address, so they must stay fqdns."""
+    v2 = "expyuzz4wqqyqhjn.onion"
+    monkeypatch.setattr(
+        ioc_extract,
+        "iocextract",
+        types.SimpleNamespace(
+            extract_hashes=lambda t: [],
+            extract_urls=lambda t, refang=True: [f"http://{v2}/gate"],
+            extract_ipv4s=lambda t, refang=True: [],
+        ),
+    )
+    result = ioc_extract.extract_iocs_from_content("leak site: expyuzz4wqqyqhjn[.]onion")
+    assert result["onion_addresses"] == set()
+    assert result["fqdns"] == {v2}
+
+
+def test_is_valid_btc_address_accepts_known_good():
+    assert ioc_extract.is_valid_btc_address(BTC_P2PKH) is True
+    assert ioc_extract.is_valid_btc_address(BTC_P2SH) is True
+    assert ioc_extract.is_valid_btc_address(BTC_BECH32) is True
+    assert ioc_extract.is_valid_btc_address(BTC_BECH32M) is True
+    assert ioc_extract.is_valid_btc_address(BTC_BECH32.upper()) is True
+
+
+def test_is_valid_btc_address_rejects_tampered_and_non_mainnet():
+    # last character changed -> checksum mismatch
+    assert ioc_extract.is_valid_btc_address(BTC_P2PKH[:-1] + "b") is False
+    assert ioc_extract.is_valid_btc_address(BTC_BECH32[:-1] + "5") is False
+    assert ioc_extract.is_valid_btc_address(BTC_BECH32M[:-1] + "1") is False
+    # testnet
+    assert (
+        ioc_extract.is_valid_btc_address(
+            "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kg3g4ty"
+        )
+        is False
+    )
+    # bech32 forbids mixed case
+    assert (
+        ioc_extract.is_valid_btc_address(
+            "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7KV8f3t4"
+        )
+        is False
+    )
+
+
+def test_extract_btc_addresses_ignores_hashes_and_random_words():
+    text = f"""
+    ransom: {BTC_P2PKH} and {BTC_BECH32}
+    sha256: {"d" * 64}
+    md5: {"a" * 32}
+    word: {"a" * 34}
+    tampered: {BTC_P2PKH[:-1]}b
+    """
+    assert ioc_extract.extract_btc_addresses(text) == {BTC_P2PKH, BTC_BECH32}
+
+
+def test_create_misp_event_object_adds_btc_attribute(monkeypatch):
+    mock_event = MagicMock()
+    monkeypatch.setattr(ioc_extract, "MISPEvent", MagicMock(return_value=mock_event))
+    monkeypatch.setattr(
+        ioc_extract, "to_yyyy_mm_dd", MagicMock(return_value="2024-02-03")
+    )
+    article = {"date": "ignored", "url": "http://source", "content": "body"}
+
+    ioc_extract.create_misp_event_object(
+        article, "info", {"btc_addresses": {BTC_P2PKH}}
+    )
+
+    mock_event.add_attribute.assert_any_call(
+        type="btc", value=BTC_P2PKH, category="Financial fraud", to_ids=False
+    )
+
+
+def test_is_valid_xmr_address_accepts_known_lengths():
+    assert len(XMR_ADDRESS) == 95
+    assert ioc_extract.is_valid_xmr_address(XMR_ADDRESS) is True
+    integrated = "4A" + XMR_ADDRESS[2:] + "1" * 11
+    assert len(integrated) == 106
+    assert ioc_extract.is_valid_xmr_address(integrated) is True
+
+
+def test_is_valid_xmr_address_rejects_wrong_shape():
+    assert ioc_extract.is_valid_xmr_address(XMR_ADDRESS[:-1]) is False  # 94 chars
+    assert ioc_extract.is_valid_xmr_address(XMR_ADDRESS + "A") is False  # 96 chars
+    assert ioc_extract.is_valid_xmr_address("5" + XMR_ADDRESS[1:]) is False  # prefix
+    assert ioc_extract.is_valid_xmr_address("8C" + XMR_ADDRESS[2:]) is False  # 2nd char
+    # 0, O, I and l are not in the base58 alphabet
+    assert ioc_extract.is_valid_xmr_address(XMR_ADDRESS[:-1] + "0") is False
+
+
+def test_extract_xmr_addresses_ignores_adjacent_text():
+    text = f"""
+    wallet: {XMR_ADDRESS}
+    truncated: {XMR_ADDRESS[:-1]}
+    glued: prefix{XMR_ADDRESS}
+    """
+    assert ioc_extract.extract_xmr_addresses(text) == {XMR_ADDRESS}
+
+
+def test_create_misp_event_object_adds_xmr_attribute(monkeypatch):
+    mock_event = MagicMock()
+    monkeypatch.setattr(ioc_extract, "MISPEvent", MagicMock(return_value=mock_event))
+    monkeypatch.setattr(
+        ioc_extract, "to_yyyy_mm_dd", MagicMock(return_value="2024-02-03")
+    )
+    article = {"date": "ignored", "url": "http://source", "content": "body"}
+
+    ioc_extract.create_misp_event_object(
+        article, "info", {"xmr_addresses": {XMR_ADDRESS}}
+    )
+
+    mock_event.add_attribute.assert_any_call(
+        type="xmr", value=XMR_ADDRESS, category="Financial fraud", to_ids=False
+    )
+
+
+def test_create_misp_event_object_adds_cve_attribute(monkeypatch):
+    mock_event = MagicMock()
+    monkeypatch.setattr(ioc_extract, "MISPEvent", MagicMock(return_value=mock_event))
+    monkeypatch.setattr(
+        ioc_extract, "to_yyyy_mm_dd", MagicMock(return_value="2024-02-03")
+    )
+    article = {"date": "ignored", "url": "http://source", "content": "body"}
+
+    ioc_extract.create_misp_event_object(article, "info", {"cves": {"CVE-2024-3400"}})
+
+    mock_event.add_attribute.assert_any_call(
+        type="vulnerability",
+        value="CVE-2024-3400",
+        category="External analysis",
+        to_ids=False,
+    )
 
 
 def test_create_misp_event_object_adds_attributes(monkeypatch):

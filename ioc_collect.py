@@ -50,6 +50,11 @@ FEED_WORKERS = int(os.getenv("FEED_WORKERS", "8"))
 
 Article = Dict[str, str]
 
+# IoC kinds that alone justify creating a MISP event. Kinds outside this set
+# (hashes, and the structurally-validated context IoCs) are still written to the
+# event, but never trigger its creation on their own.
+EVENT_TRIGGER_IOC_KEYS = {"urls", "ips", "fqdns", "browser_extensions"}
+
 
 def _entry_get(entry, key: str, default=""):
     if isinstance(entry, dict):
@@ -336,7 +341,12 @@ def process_article(
                 if sample_iocs:
                     logger.info(f"    Sample: {sample_iocs}")
 
-        if sum(len(values) for key, values in iocs.items() if key != "hashes") > 2:
+        trigger_ioc_count = sum(
+            len(values)
+            for key, values in iocs.items()
+            if key in EVENT_TRIGGER_IOC_KEYS
+        )
+        if trigger_ioc_count > 2:
             if add_event_to_misp(current_article, iocs, misp):
                 event_created = True
     return event_created
