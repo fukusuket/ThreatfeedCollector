@@ -12,7 +12,7 @@ A pipeline that ingests untrusted external web content (vendor threat-intel blog
 
 | Module | Role |
 |---|---|
-| `ioc_collect.py` | Entry point. Reads `config/rss_feeds.csv`, fetches feeds in parallel (`ThreadPoolExecutor`), scrapes article HTML, pushes to MISP, writes `ioc_stats_YYYYMMDD.csv` |
+| `ioc_collect.py` | Entry point. Reads `config/rss_feeds.csv`, fetches feeds in parallel (`ThreadPoolExecutor`), scrapes article HTML, pushes to MISP, writes `ioc_stats_YYYYMMDD.csv`. `--no-misp` skips every MISP call and builds the CSV from locally built events instead — see §11 |
 | `ioc_extract.py` | Extracts IoCs (URL / IP / FQDN / hash / Chrome extension ID / CVE / onion address / BTC & XMR address) and builds the `MISPEvent` |
 | `thunt_advisor.py` | LLM calls, dispatched on `LLM_PROVIDER` (`openai` \| `bedrock`). **Intentionally not wired into the pipeline — see §5** |
 | `app.py` | Streamlit dashboard listing MISP events |
@@ -54,7 +54,7 @@ Each gate yields a verdict from a single command.
 # Gate 1 — Lint (must be clean)
 python3 -m ruff check .
 
-# Gate 2 — Unit tests (must be 71 passed)
+# Gate 2 — Unit tests (must be 81 passed)
 python3 -m pytest -q
 
 # Gate 3 — Security invariant counts (must match the §4 baseline)
@@ -165,3 +165,16 @@ Stop and ask before doing any of these:
 - These four kinds (CVE, onion, btc, xmr) are display-safe as-is, so `app.py` does not defang them; none are rendered as links by `st.markdown`.
 - A MISP event is created only when the count of IoCs in `EVENT_TRIGGER_IOC_KEYS` (`urls`, `ips`, `fqdns`, `browser_extensions`) is **> 2** (`process_article`). Other kinds are written to the event but never trigger its creation.
 - Duplicate detection checks both the event title and the `External analysis` url attribute.
+
+---
+
+## 11. `--no-misp` mode
+
+`python3 ioc_collect.py --no-misp` runs the same collection and extraction, but never constructs `PyMISP` and never reaches the MISP server. Feeds and article pages are still fetched, so the untrusted-input and SSRF considerations of §1 and §4 apply unchanged.
+
+- The mode is an **explicit flag, never an automatic fallback.** An unset or mistyped `MISP_KEY` must keep failing loudly (`main`), rather than silently degrading into a run whose events are never stored.
+- Rows come from `build_event()` — the same `create_misp_event_object()` the MISP path uses, built in memory only — passed through the same `stats_rows_from_events()`. That is what keeps the CSV columns identical in both modes; `tests/test_ioc_collect.py::test_local_row_matches_misp_row` pins it. Do not give the local path its own row builder.
+- `pymisp` therefore stays a required dependency even in this mode.
+- **Coverage differs from MISP mode.** `save_stats(misp)` reports every event in MISP for the last `DAYS_BACK` days, including ones from earlier runs. Without MISP only the current run is known, so `save_stats_local()` merges into an existing `ioc_stats_YYYYMMDD.csv` and deduplicates on `blog url` (existing rows win), which also replaces the server-side duplicate checks. Aggregating across days is the consumer's job.
+- Worker threads return their rows; `main` aggregates them. Do not introduce a shared mutable collector.
+- Publishing this CSV (e.g. to GitHub Pages) creates a **new output boundary** for untrusted data: `title` and `blog url` are attacker-influenced. Escape them and do not auto-link them, the same way I2/I5 constrain `app.py`.

@@ -1,4 +1,5 @@
 import os
+import argparse
 import csv
 import re
 import sys
@@ -6,7 +7,7 @@ import time
 import logging
 from pathlib import Path
 from datetime import datetime, timedelta
-from typing import List, Dict
+from typing import Dict, List, Optional, Sequence, Set
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
@@ -14,7 +15,7 @@ import urllib3
 import feedparser
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
-from pymisp import PyMISP
+from pymisp import MISPEvent, PyMISP
 from dateutil import parser
 from urllib.parse import urljoin, urlparse
 
@@ -45,6 +46,7 @@ if not MISP_KEY and Path("/shared/authkey.txt").exists():
 
 RSS_FEEDS_CSV = str(Path(__file__).resolve().parent / "config" / "rss_feeds.csv")
 OUTPUT_CSV = f"ioc_stats_{datetime.now().strftime('%Y%m%d')}.csv"
+STATS_FIELDNAMES = ["date", "vendor", "iocs", "title", "blog url"]
 DAYS_BACK = int(os.getenv("DAYS_BACK", "7"))
 FEED_WORKERS = int(os.getenv("FEED_WORKERS", "8"))
 
@@ -260,8 +262,22 @@ def fetch_full_content(
         return []
 
 
+def _event_info(article: Article) -> str:
+    return f"[{article.get('vendor', '')}] {article.get('title', '')[:100]}"
+
+
+def build_event(article: Article, iocs: Dict) -> Optional[MISPEvent]:
+    """Build the MISPEvent in memory only -- no network access. Shared by
+    add_event_to_misp and the --no-misp path so the stats rows are identical
+    either way."""
+    url = article.get("url", "")
+    if url:
+        article['url'] = re.sub(r"#.*", "", url)
+    return create_misp_event_object(article, _event_info(article), iocs)
+
+
 def add_event_to_misp(article: Article, iocs: Dict, misp: PyMISP) -> bool:
-    event_info = f"[{article.get('vendor', '')}] {article.get('title', '')[:100]}"
+    event_info = _event_info(article)
     logger.info(f"Creating MISP event: {event_info}")
     try:
         existing_events = misp.search(eventinfo=event_info)
@@ -269,11 +285,7 @@ def add_event_to_misp(article: Article, iocs: Dict, misp: PyMISP) -> bool:
             logger.info(f"Event with same title already exists, skipping: {event_info}")
             return False
         logger.info(f"No existing event found with title: {event_info}")
-        url = article.get("url", "")
-        if url:
-            url = re.sub(r"#.*", "", url)
-            article['url'] = url
-        event = create_misp_event_object(article, event_info, iocs)
+        event = build_event(article, iocs)
         if event:
             url = article.get("url", "")
             existing_attrs = misp.search(
@@ -297,12 +309,16 @@ def add_event_to_misp(article: Article, iocs: Dict, misp: PyMISP) -> bool:
 
 
 def process_article(
-    misp: PyMISP,
+    misp: Optional[PyMISP],
     article: Article,
     vendor: str,
     crawl_links: bool = False,
     crawl_same_domain: bool = False,
+    stats: Optional[List[Dict[str, str]]] = None,
 ) -> bool:
+    """With misp set, events are pushed to MISP as usual. With misp None
+    (--no-misp) nothing leaves this process: the event is built in memory and
+    its stats row is appended to stats instead."""
     logger.info(f"Processing article: {article.get('title', '')[:100]}...")
     articles = fetch_full_content(
         article, crawl_links=crawl_links, crawl_same_domain=crawl_same_domain
@@ -313,21 +329,24 @@ def process_article(
     event_created = False
     for current_article in articles:
         url = current_article.get("url", "")
-        try:
-            existing_attrs = misp.search(
-                controller="attributes",
-                value=url,
-                type="url",
-                category="External analysis",
-                pythonify=True,
-            )
-            if existing_attrs:
-                logger.info(
-                    f"External analysis URL already exists in MISP, skipping: {url}"
+        if misp is not None:
+            try:
+                existing_attrs = misp.search(
+                    controller="attributes",
+                    value=url,
+                    type="url",
+                    category="External analysis",
+                    pythonify=True,
                 )
-                continue
-        except Exception as e:
-            logger.warning(f"Failed to check existing MISP attributes for {url}: {e}")
+                if existing_attrs:
+                    logger.info(
+                        f"External analysis URL already exists in MISP, skipping: {url}"
+                    )
+                    continue
+            except Exception as e:
+                logger.warning(
+                    f"Failed to check existing MISP attributes for {url}: {e}"
+                )
 
         logger.info(f"Processing {current_article.get('url', '')}")
         iocs = extract_iocs_from_content(current_article.get("content", ""))
@@ -347,9 +366,50 @@ def process_article(
             if key in EVENT_TRIGGER_IOC_KEYS
         )
         if trigger_ioc_count > 2:
-            if add_event_to_misp(current_article, iocs, misp):
+            if misp is None:
+                event = build_event(current_article, iocs)
+                if event is not None:
+                    if stats is not None:
+                        stats.extend(stats_rows_from_events([event]))
+                    event_created = True
+            elif add_event_to_misp(current_article, iocs, misp):
                 event_created = True
     return event_created
+
+
+def stats_rows_from_events(events: List[MISPEvent]) -> List[Dict[str, str]]:
+    """Turn events into stats rows. Shared by the MISP and the --no-misp paths so
+    both produce identical columns; an event without an External analysis url
+    attribute yields no row."""
+    rows: List[Dict[str, str]] = []
+    for event in events:
+        vendor = (
+            event.info.split("]")[0].strip("[").split("]")[0]
+            if "]" in event.info
+            else "Unknown"
+        )
+        ioc_count = len(event.attributes) - 1
+        title = re.sub(r"^\[.*?\]\s*", "", event.info)
+        for attr in event.attributes:
+            if attr.category == "External analysis" and attr.type == "url":
+                rows.append(
+                    {
+                        "date": event.date,
+                        "vendor": vendor,
+                        "iocs": ioc_count,
+                        "title": title,
+                        "blog url": attr.value,
+                    }
+                )
+                break
+    return rows
+
+
+def _write_stats_csv(rows: List[Dict[str, str]]) -> None:
+    with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=STATS_FIELDNAMES)
+        writer.writeheader()
+        writer.writerows(rows)
 
 
 def save_stats(misp: PyMISP) -> None:
@@ -360,31 +420,7 @@ def save_stats(misp: PyMISP) -> None:
         date_to = datetime.now().strftime("%Y-%m-%d")
         events = misp.search(date_from=date_from, date_to=date_to, pythonify=True)
 
-        with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as csvfile:
-            writer = csv.DictWriter(
-                csvfile, fieldnames=["date", "vendor", "iocs", "title", "blog url"]
-            )
-            writer.writeheader()
-            for event in events:
-                vendor = (
-                    event.info.split("]")[0].strip("[").split("]")[0]
-                    if "]" in event.info
-                    else "Unknown"
-                )
-                ioc_count = len(event.attributes) - 1
-                title = re.sub(r"^\[.*?\]\s*", "", event.info)
-                for attr in event.attributes:
-                    if attr.category == "External analysis" and attr.type == "url":
-                        writer.writerow(
-                            {
-                                "date": event.date,
-                                "vendor": vendor,
-                                "iocs": ioc_count,
-                                "title": title,
-                                "blog url": attr.value,
-                            }
-                        )
-                        break
+        _write_stats_csv(stats_rows_from_events(events))
         logger.info(f"Stats saved to {OUTPUT_CSV}")
         logger.info(
             f"Total: {sum(len(e.attributes) - 1 for e in events)} IOCs, {len(events)} events created"
@@ -393,19 +429,89 @@ def save_stats(misp: PyMISP) -> None:
         logger.error(f"Failed to save stats: {e}")
 
 
-def main() -> None:
+def _read_stats_csv(path: str) -> List[Dict[str, str]]:
+    try:
+        with open(path, "r", newline="", encoding="utf-8") as csvfile:
+            return [
+                {key: row.get(key, "") for key in STATS_FIELDNAMES}
+                for row in csv.DictReader(csvfile)
+            ]
+    except FileNotFoundError:
+        return []
+    except Exception as e:
+        logger.warning(f"Failed to read existing stats CSV {path}: {e}")
+        return []
+
+
+def merge_stats_rows(
+    existing: List[Dict[str, str]], new: List[Dict[str, str]]
+) -> List[Dict[str, str]]:
+    """Deduplicate on blog url, existing rows winning. Without MISP there is no
+    server-side duplicate check, so this covers both a link crawled twice in one
+    run and a re-run on the same day."""
+    merged: List[Dict[str, str]] = []
+    seen: Set[str] = set()
+    for row in [*existing, *new]:
+        url = str(row.get("blog url", ""))
+        if url in seen:
+            continue
+        seen.add(url)
+        merged.append(row)
+    return merged
+
+
+def _ioc_count(row: Dict[str, str]) -> int:
+    """The merged rows include whatever an earlier run (or a hand edit) left in
+    the CSV, so a non-numeric count must not turn a successful write into a
+    reported failure."""
+    try:
+        return int(row.get("iocs", 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def save_stats_local(rows: List[Dict[str, str]]) -> None:
+    try:
+        merged = merge_stats_rows(_read_stats_csv(OUTPUT_CSV), rows)
+        _write_stats_csv(merged)
+        logger.info(f"Stats saved to {OUTPUT_CSV}")
+        logger.info(
+            f"Total: {sum(_ioc_count(row) for row in merged)} IOCs, {len(merged)} articles"
+        )
+    except Exception as e:
+        logger.error(f"Failed to save stats: {e}")
+
+
+def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
+    arg_parser = argparse.ArgumentParser(
+        description="Collect IoCs from threat intelligence RSS feeds."
+    )
+    arg_parser.add_argument(
+        "--no-misp",
+        action="store_true",
+        help="Run without MISP: only write ioc_stats_YYYYMMDD.csv, never connect to MISP.",
+    )
+    return arg_parser.parse_args(argv)
+
+
+def main(argv: Sequence[str] = ()) -> None:
     start_time = time.time()
     logger.info("Starting ThreatFeed Collector with iocextract")
+    args = _parse_args(argv)
 
-    try:
-        if not MISP_KEY:
-            logger.error("MISP_KEY environment variable must be set")
+    misp: Optional[PyMISP] = None
+    if args.no_misp:
+        logger.info("Running with --no-misp: stats CSV only, no MISP connection")
+    else:
+        try:
+            if not MISP_KEY:
+                logger.error("MISP_KEY environment variable must be set")
+                sys.exit(1)
+            misp = PyMISP(MISP_URL, MISP_KEY, ssl=False)
+            logger.info("MISP connection established")
+        except Exception as e:
+            logger.error(f"MISP connection failed: {e}")
             sys.exit(1)
-        misp = PyMISP(MISP_URL, MISP_KEY, ssl=False)
-        logger.info("MISP connection established")
-    except Exception as e:
-        logger.error(f"MISP connection failed: {e}")
-        sys.exit(1)
 
     try:
         with open(RSS_FEEDS_CSV, "r") as f:
@@ -423,7 +529,7 @@ def main() -> None:
     logger.info(f"Processing {len(feeds)} RSS feeds")
     cutoff_date = datetime.now() - timedelta(days=DAYS_BACK)
 
-    def _process_vendor_feed(row: List[str]) -> str:
+    def _process_vendor_feed(row: List[str]) -> List[Dict[str, str]]:
         # The reader accepts rows with >= 2 columns, and README documents a
         # 3-column form, so pad instead of unpacking a fixed width.
         vendor, feed_url = row[0].strip(), row[1].strip()
@@ -447,13 +553,22 @@ def main() -> None:
             ]
             crawl_same_domain = True
 
+        rows: List[Dict[str, str]] = []
         for article in articles:
             process_article(
-                misp, article, vendor, should_crawl_links, crawl_same_domain
+                misp,
+                article,
+                vendor,
+                should_crawl_links,
+                crawl_same_domain,
+                stats=rows,
             )
-        return vendor
+        return rows
 
     max_workers = max(1, min(FEED_WORKERS, len(feeds)))
+    # Rows are collected here, in the main thread, so the workers never share
+    # mutable state.
+    collected_rows: List[Dict[str, str]] = []
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_vendor = {
             executor.submit(_process_vendor_feed, row): row[0] for row in feeds
@@ -461,14 +576,17 @@ def main() -> None:
         for future in as_completed(future_to_vendor):
             vendor = future_to_vendor[future]
             try:
-                future.result()
+                collected_rows.extend(future.result())
                 logger.info(f"Completed vendor: {vendor}")
             except Exception as exc:
                 logger.warning(f"Vendor {vendor} failed: {exc}")
 
-    save_stats(misp)
+    if misp is None:
+        save_stats_local(collected_rows)
+    else:
+        save_stats(misp)
     logger.info(f"Completed in {time.time() - start_time:.2f} seconds")
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])

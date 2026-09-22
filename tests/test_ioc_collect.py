@@ -452,3 +452,223 @@ def test_main_happy_path(monkeypatch, tmp_path):
     ioc_collect.main()
     ioc_collect.process_article.assert_called()
     ioc_collect.save_stats.assert_called()
+
+
+# --- --no-misp (local) mode -------------------------------------------------
+
+LOCAL_ARTICLE = {
+    "title": "t",
+    "date": "2024-01-02",
+    "url": "http://blog/post#frag",
+    "content": "body",
+    "vendor": "v",
+}
+# Three trigger IoCs -> one event / one stats row.
+LOCAL_IOCS = {
+    "urls": {"http://a.example", "http://b.example"},
+    "ips": {"1.2.3.4"},
+    "hashes": set(),
+    "fqdns": set(),
+    "browser_extensions": set(),
+}
+
+
+def _local_row(monkeypatch, article=None, iocs=None):
+    monkeypatch.setattr(
+        ioc_collect,
+        "fetch_full_content",
+        MagicMock(return_value=[dict(article or LOCAL_ARTICLE)]),
+    )
+    monkeypatch.setattr(
+        ioc_collect,
+        "extract_iocs_from_content",
+        MagicMock(return_value=dict(iocs if iocs is not None else LOCAL_IOCS)),
+    )
+    rows = []
+    created = ioc_collect.process_article(
+        None, dict(article or LOCAL_ARTICLE), "v", stats=rows
+    )
+    return created, rows
+
+
+def test_process_article_local_mode_appends_row(monkeypatch):
+    created, rows = _local_row(monkeypatch)
+    assert created is True
+    assert len(rows) == 1
+    row = rows[0]
+    assert str(row["date"]) == "2024-01-02"
+    assert row["vendor"] == "v"
+    # iocs excludes the External analysis url attribute: 2 urls + 1 ip
+    assert row["iocs"] == 3
+    assert row["title"] == "t"
+    # the url fragment is stripped, as on the MISP path
+    assert row["blog url"] == "http://blog/post"
+
+
+def test_process_article_local_mode_never_touches_misp(monkeypatch):
+    add_event = MagicMock()
+    monkeypatch.setattr(ioc_collect, "add_event_to_misp", add_event)
+    created, rows = _local_row(monkeypatch)
+    assert created is True
+    assert rows
+    add_event.assert_not_called()
+
+
+def test_process_article_local_mode_respects_trigger_threshold(monkeypatch):
+    """Two trigger IoCs are not enough, and non-trigger kinds do not make up the
+    difference -- the article must produce no row at all."""
+    created, rows = _local_row(
+        monkeypatch,
+        iocs={
+            "urls": {"http://a.example"},
+            "ips": {"1.2.3.4"},
+            "hashes": {"d41d8cd98f00b204e9800998ecf8427e"},
+            "fqdns": set(),
+            "browser_extensions": set(),
+        },
+    )
+    assert created is False
+    assert rows == []
+
+
+def test_local_row_matches_misp_row(monkeypatch):
+    """The CSV must not change meaning depending on the mode: the row built
+    locally has to equal the row save_stats would derive from the pushed event."""
+    misp = MagicMock()
+    misp.search.return_value = []
+    assert (
+        ioc_collect.add_event_to_misp(dict(LOCAL_ARTICLE), dict(LOCAL_IOCS), misp)
+        is True
+    )
+    pushed_event = misp.add_event.call_args[0][0]
+    misp_rows = ioc_collect.stats_rows_from_events([pushed_event])
+
+    local_event = ioc_collect.build_event(dict(LOCAL_ARTICLE), dict(LOCAL_IOCS))
+    local_rows = ioc_collect.stats_rows_from_events([local_event])
+
+    assert local_rows == misp_rows
+
+
+def test_local_row_title_truncated_to_100_chars(monkeypatch):
+    article = dict(LOCAL_ARTICLE, title="x" * 150)
+    _, rows = _local_row(monkeypatch, article=article)
+    assert rows[0]["title"] == "x" * 100
+
+
+def test_merge_stats_rows_prefers_existing():
+    existing = [
+        {"date": "d1", "vendor": "v", "iocs": "1", "title": "old", "blog url": "u1"}
+    ]
+    new = [
+        {"date": "d2", "vendor": "v", "iocs": 9, "title": "new", "blog url": "u1"},
+        {"date": "d3", "vendor": "v", "iocs": 2, "title": "fresh", "blog url": "u2"},
+    ]
+    merged = ioc_collect.merge_stats_rows(existing, new)
+    assert [row["title"] for row in merged] == ["old", "fresh"]
+
+
+def test_save_stats_local_merges_existing_csv(monkeypatch, tmp_path):
+    out = tmp_path / "out.csv"
+    monkeypatch.setattr(ioc_collect, "OUTPUT_CSV", str(out))
+    row_a = {
+        "date": "2024-01-02",
+        "vendor": "v",
+        "iocs": 3,
+        "title": "a",
+        "blog url": "http://blog/a",
+    }
+    row_b = dict(row_a, title="b", blog_url=None)
+    row_b.pop("blog_url")
+    row_b["blog url"] = "http://blog/b"
+
+    ioc_collect.save_stats_local([row_a])
+    # same-day re-run must not duplicate the article already recorded
+    ioc_collect.save_stats_local([row_a, row_b])
+
+    rows = list(csv.DictReader(out.read_text().splitlines()))
+    assert [row["blog url"] for row in rows] == ["http://blog/a", "http://blog/b"]
+    assert [row["title"] for row in rows] == ["a", "b"]
+
+
+def _no_misp_feeds(monkeypatch, tmp_path):
+    feeds = tmp_path / "feeds.csv"
+    feeds.write_text("Vendor,RSS,Blog\nv,http://feed,http://blog\n")
+    monkeypatch.setattr(ioc_collect, "RSS_FEEDS_CSV", str(feeds))
+    monkeypatch.setattr(
+        ioc_collect, "process_feed", MagicMock(return_value=[dict(LOCAL_ARTICLE)])
+    )
+
+
+def test_main_no_misp_never_connects(monkeypatch, tmp_path):
+    """--no-misp must not construct PyMISP, and must not need MISP_KEY."""
+    pymisp = MagicMock()
+    monkeypatch.setattr(ioc_collect, "PyMISP", pymisp)
+    monkeypatch.setattr(ioc_collect, "MISP_KEY", "")
+    _no_misp_feeds(monkeypatch, tmp_path)
+    monkeypatch.setattr(ioc_collect, "process_article", MagicMock(return_value=False))
+    save_stats = MagicMock()
+    save_stats_local = MagicMock()
+    monkeypatch.setattr(ioc_collect, "save_stats", save_stats)
+    monkeypatch.setattr(ioc_collect, "save_stats_local", save_stats_local)
+
+    ioc_collect.main(["--no-misp"])
+
+    pymisp.assert_not_called()
+    save_stats.assert_not_called()
+    save_stats_local.assert_called_once()
+    assert ioc_collect.process_article.call_args[0][0] is None
+
+
+def test_main_no_misp_collects_rows_from_workers(monkeypatch, tmp_path):
+    monkeypatch.setattr(ioc_collect, "PyMISP", MagicMock())
+    _no_misp_feeds(monkeypatch, tmp_path)
+
+    def fake_process_article(
+        misp, article, vendor, crawl_links=False, crawl_same_domain=False, stats=None
+    ):
+        stats.append(
+            {
+                "date": "2024-01-02",
+                "vendor": vendor,
+                "iocs": 3,
+                "title": "t",
+                "blog url": f"http://blog/{vendor}",
+            }
+        )
+        return True
+
+    monkeypatch.setattr(ioc_collect, "process_article", fake_process_article)
+    captured = []
+    monkeypatch.setattr(
+        ioc_collect, "save_stats_local", lambda rows: captured.extend(rows)
+    )
+
+    ioc_collect.main(["--no-misp"])
+
+    assert [row["blog url"] for row in captured] == ["http://blog/v"]
+
+
+def test_save_stats_local_survives_malformed_existing_csv(monkeypatch, tmp_path, caplog):
+    """A hand-edited or truncated CSV must not make a successful write report a
+    failure, and must not drop the rows from this run."""
+    out = tmp_path / "out.csv"
+    out.write_text(
+        "date,vendor,iocs,title,blog url\n2024-01-01,v,not-a-number,old,http://blog/a\n"
+    )
+    monkeypatch.setattr(ioc_collect, "OUTPUT_CSV", str(out))
+
+    ioc_collect.save_stats_local(
+        [
+            {
+                "date": "2024-01-02",
+                "vendor": "v",
+                "iocs": 3,
+                "title": "new",
+                "blog url": "http://blog/b",
+            }
+        ]
+    )
+
+    rows = list(csv.DictReader(out.read_text().splitlines()))
+    assert [row["blog url"] for row in rows] == ["http://blog/a", "http://blog/b"]
+    assert not any("Failed to save stats" in rec.message for rec in caplog.records)
