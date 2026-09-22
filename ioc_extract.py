@@ -80,6 +80,17 @@ def _load_set_from_file(path: Path) -> Set[str]:
 COMMON_DOMAINS = _load_set_from_file(CONFIG_DIR / "common_domains.txt")
 SUSPICIOUS_EXTENSIONS = _load_set_from_file( CONFIG_DIR / "suspicious_extensions.txt")
 WARNING_LISTS = WarningLists(slow_search=True)
+# The warninglist pass exists to keep known-benign infrastructure out of MISP.
+# A --no-misp run writes nothing to MISP and is read by a human, so it opts out
+# and reports every candidate instead (AGENTS.md §11). Default stays on.
+USE_WARNING_LISTS = True
+
+
+def set_warning_list_filtering(enabled: bool) -> None:
+    """Turn the pymispwarninglists pass on or off for this process."""
+    global USE_WARNING_LISTS
+    USE_WARNING_LISTS = enabled
+    logger.info(f"Warning list filtering {'enabled' if enabled else 'disabled'}")
 
 
 def is_global_ipv4(ip_str: str) -> bool:
@@ -87,19 +98,20 @@ def is_global_ipv4(ip_str: str) -> bool:
         ip = ipaddress.IPv4Address(ip_str)
         if not ip.is_global:
             return False
-        result = WARNING_LISTS.search(ip_str)
-        if any(
-            name in str(result)
-            for name in [
-                "IPv4 public DNS resolvers",
-                "Zscaler IP",
-                "Cloudflare IP",
-                "Akamai IP",
-                "Google IP",
-            ]
-        ):
-            logger.info(f"Excluding IP from warning list: {ip_str}")
-            return False
+        if USE_WARNING_LISTS:
+            result = WARNING_LISTS.search(ip_str)
+            if any(
+                name in str(result)
+                for name in [
+                    "IPv4 public DNS resolvers",
+                    "Zscaler IP",
+                    "Cloudflare IP",
+                    "Akamai IP",
+                    "Google IP",
+                ]
+            ):
+                logger.info(f"Excluding IP from warning list: {ip_str}")
+                return False
         return True
     except ipaddress.AddressValueError:
         return False
@@ -118,7 +130,7 @@ def is_suspicious_domain(domain: str) -> bool:
         return False
     if re.match(r"\d{1,3}(\.\d{1,3}){3}", domain):
         return False
-    if WARNING_LISTS.search(domain):
+    if USE_WARNING_LISTS and WARNING_LISTS.search(domain):
         logger.info(f"Excluding domain from warning list: {domain}")
         return False
     domain_parts = domain.split(".")
@@ -132,7 +144,7 @@ def is_suspicious_url(url: str) -> bool:
     url_lower = url.lower()
     if "/" not in url and not url.startswith("http"):
         return False
-    if WARNING_LISTS.search(url_lower):
+    if USE_WARNING_LISTS and WARNING_LISTS.search(url_lower):
         logger.info(f"Excluding url from warning list: {url_lower}")
         return False
     return not any(domain in url_lower for domain in COMMON_DOMAINS)

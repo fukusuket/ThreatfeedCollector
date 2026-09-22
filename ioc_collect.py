@@ -22,6 +22,7 @@ from urllib.parse import urljoin, urlparse
 from ioc_extract import (
     extract_iocs_from_content,
     create_misp_event_object,
+    set_warning_list_filtering,
     COMMON_DOMAINS,
     to_yyyy_mm_dd,
 )
@@ -502,6 +503,9 @@ def main(argv: Sequence[str] = ()) -> None:
     misp: Optional[PyMISP] = None
     if args.no_misp:
         logger.info("Running with --no-misp: stats CSV only, no MISP connection")
+        # Nothing is written to MISP, so keep every candidate IoC rather than
+        # trimming known-benign infrastructure. The CSV is unfiltered.
+        set_warning_list_filtering(False)
     else:
         try:
             if not MISP_KEY:

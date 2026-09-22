@@ -54,7 +54,7 @@ Each gate yields a verdict from a single command.
 # Gate 1 — Lint (must be clean)
 python3 -m ruff check .
 
-# Gate 2 — Unit tests (must be 81 passed)
+# Gate 2 — Unit tests (must be 88 passed)
 python3 -m pytest -q
 
 # Gate 3 — Security invariant counts (must match the §4 baseline)
@@ -157,6 +157,7 @@ Stop and ask before doing any of these:
 
 - Only **defanged** IoCs (`[.]`, `hxxp`, `[://]`) are extracted as URLs/IPs. Hashes and Chrome extension IDs are scanned from the full text.
 - Filter order: `COMMON_DOMAINS` → `pymispwarninglists` (slow_search) → `ipaddress.is_global` → CDN/DNS warning-list name matching.
+- Both `pymispwarninglists` steps (the raw list hit and the CDN/DNS name matching) are governed by `ioc_extract.USE_WARNING_LISTS`, which `--no-misp` turns off — see §11. `COMMON_DOMAINS` and `ipaddress.is_global` always apply.
 - Chrome extension IDs match `[a-p]{32}`.
 - CVE IDs match `CVE-(19|20)\d{2}-\d{4,7}` (case-insensitive, normalized to upper case) and are scanned from the full text. They are written as `vulnerability` / `External analysis` / `to_ids=False`.
 - v3 onion addresses are accepted only when the embedded ed25519 checksum verifies (`is_valid_onion_v3`); `[.]onion` defanging is refanged first, and v2 (16-char) addresses are rejected. Written as `onion-address` / `Network activity` / `to_ids=True`. A v3 address accepted here is removed from `fqdns`, so it is never also written as a `hostname`; addresses that fail verification (e.g. v2) stay in `fqdns`. Because `fqdns` feeds `EVENT_TRIGGER_IOC_KEYS`, a verified onion no longer counts toward event creation.
@@ -175,6 +176,8 @@ Stop and ask before doing any of these:
 - The mode is an **explicit flag, never an automatic fallback.** An unset or mistyped `MISP_KEY` must keep failing loudly (`main`), rather than silently degrading into a run whose events are never stored.
 - Rows come from `build_event()` — the same `create_misp_event_object()` the MISP path uses, built in memory only — passed through the same `stats_rows_from_events()`. That is what keeps the CSV columns identical in both modes; `tests/test_ioc_collect.py::test_local_row_matches_misp_row` pins it. Do not give the local path its own row builder.
 - `pymisp` therefore stays a required dependency even in this mode.
+- **IoC filtering differs from MISP mode.** `main` calls `ioc_extract.set_warning_list_filtering(False)`, so neither warninglist step of §10 runs and `WARNING_LISTS.search` is never called. The CSV therefore keeps values MISP mode drops (listed domains/URLs, CDN and public-DNS IPs) — intentional, because nothing is written to MISP and a human reads the output. The *columns* stay identical to MISP mode (`test_local_row_matches_misp_row`); the *values* do not, so the two modes' IoC counts are not comparable.
+- The switch is process-global. Any test that runs `main(["--no-misp"])` must restore it; the autouse fixtures in `tests/test_ioc_collect.py` and `tests/test_ioc_extract.py` snapshot `USE_WARNING_LISTS` for that reason. Without that, the flag leaks and later tests silently run unfiltered.
 - **Coverage differs from MISP mode.** `save_stats(misp)` reports every event in MISP for the last `DAYS_BACK` days, including ones from earlier runs. Without MISP only the current run is known, so `save_stats_local()` merges into an existing `ioc_stats_YYYYMMDD.csv` and deduplicates on `blog url` (existing rows win), which also replaces the server-side duplicate checks. Aggregating across days is the consumer's job.
 - Worker threads return their rows; `main` aggregates them. Do not introduce a shared mutable collector.
 - Publishing this CSV (e.g. to GitHub Pages) creates a **new output boundary** for untrusted data: `title` and `blog url` are attacker-influenced. Escape them and do not auto-link them, the same way I2/I5 constrain `app.py`.

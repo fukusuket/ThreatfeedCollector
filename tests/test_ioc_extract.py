@@ -16,6 +16,8 @@ def reset_warning_lists(monkeypatch):
     dummy = MagicMock()
     dummy.search.return_value = None
     monkeypatch.setattr(ioc_extract, "WARNING_LISTS", dummy)
+    # Tests flip the filtering switch; restore it so order cannot matter.
+    monkeypatch.setattr(ioc_extract, "USE_WARNING_LISTS", ioc_extract.USE_WARNING_LISTS)
     return dummy
 
 
@@ -514,3 +516,54 @@ def test_add_ai_iocs_from_summary_trims_quotes(monkeypatch):
         comment="sender",
     )
 
+
+def test_warning_list_filtering_is_enabled_by_default():
+    """Writing to MISP keeps the filter: only --no-misp opts out (AGENTS.md §11)."""
+    assert ioc_extract.USE_WARNING_LISTS is True
+
+
+def test_is_suspicious_domain_keeps_listed_domain_when_filtering_disabled(reset_warning_lists):
+    reset_warning_lists.search.return_value = "listed"
+    assert ioc_extract.is_suspicious_domain("evil.test") is False
+
+    reset_warning_lists.search.reset_mock()
+    ioc_extract.set_warning_list_filtering(False)
+    assert ioc_extract.is_suspicious_domain("evil.test") is True
+    # The COMMON_DOMAINS pass is not warninglist-based and stays in force.
+    assert ioc_extract.is_suspicious_domain("google.com") is False
+    reset_warning_lists.search.assert_not_called()
+
+
+def test_is_suspicious_url_keeps_listed_url_when_filtering_disabled(reset_warning_lists):
+    reset_warning_lists.search.return_value = "listed"
+    assert ioc_extract.is_suspicious_url("http://evil.test/a") is False
+
+    reset_warning_lists.search.reset_mock()
+    ioc_extract.set_warning_list_filtering(False)
+    assert ioc_extract.is_suspicious_url("http://evil.test/a") is True
+    reset_warning_lists.search.assert_not_called()
+
+
+def test_is_global_ipv4_keeps_cdn_ip_when_filtering_disabled(reset_warning_lists):
+    reset_warning_lists.search.return_value = "Cloudflare IP"
+    assert ioc_extract.is_global_ipv4("1.1.1.1") is False
+
+    reset_warning_lists.search.reset_mock()
+    ioc_extract.set_warning_list_filtering(False)
+    assert ioc_extract.is_global_ipv4("1.1.1.1") is True
+    # Only the warninglist pass is skipped; private space is still rejected.
+    assert ioc_extract.is_global_ipv4("10.0.0.1") is False
+    reset_warning_lists.search.assert_not_called()
+
+
+def test_extract_iocs_keeps_listed_ioc_when_filtering_disabled(reset_warning_lists):
+    reset_warning_lists.search.return_value = "listed"
+    text = "IOC: hxxp://cdn.evil[.]test/payload.bin"
+    filtered = ioc_extract.extract_iocs_from_content(text)
+    assert filtered["urls"] == set()
+    assert filtered["fqdns"] == set()
+
+    ioc_extract.set_warning_list_filtering(False)
+    unfiltered = ioc_extract.extract_iocs_from_content(text)
+    assert unfiltered["urls"] == {"http://cdn.evil.test/payload.bin"}
+    assert unfiltered["fqdns"] == {"cdn.evil.test"}

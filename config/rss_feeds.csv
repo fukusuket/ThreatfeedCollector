@@ -9,10 +9,10 @@ Google Cloud Threat Intelligence,https://feeds.feedburner.com/threatintelligence
 Huntress Labs,https://www.huntress.com/blog/rss.xml,https://www.huntress.com/blog-categories/threat-analysis,False
 Kaspersky,https://www.kaspersky.com/blog/feed/,https://www.kaspersky.com/blog/,False
 Microsoft Security Blog,https://www.microsoft.com/en-us/security/blog/feed/,https://www.microsoft.com/en-us/security/blog/,False
-Sekoia,https://blog.sekoia.io/feed/,https://blog.sekoia.io,False
+Sekoia,https://www.sekoia.com/blog/rss.xml,https://www.sekoia.com/blog,False
 SentinelOne,https://www.sentinelone.com/labs/feed/,https://www.sentinelone.com/labs/,False
 Sophos,https://news.sophos.com/en-us/category/threat-research/feed/,https://news.sophos.com/en-us/category/threat-research,False
-Trustwave,https://www.trustwave.com/en-us/resources/blogs/spiderlabs-blog/rss.xml,https://www.trustwave.com/en-us/resources/blogs/spiderlabs-blog/,False
+LevelBlue(Trustwave SpiderLabs),https://www.levelblue.com/blogs/levelblue-blog/rss.xml,https://www.levelblue.com/blogs/levelblue-blog,False
 Unit42(Palo Alto Networks),https://unit42.paloaltonetworks.com/category/threat-research/rss,https://unit42.paloaltonetworks.com/category/threat-research/,False
 ProofPoint,https://www.proofpoint.com/us/threat-insight-blog.xml,https://www.proofpoint.com/us/blog/threat-insight,False
 BleepingComputer,https://www.bleepingcomputer.com/feed/security/,https://www.bleepingcomputer.com/news/security/,True
@@ -22,4 +22,10 @@ LayerX,https://layerxsecurity.com/feed,https://layerxsecurity.com/blog/,False
 Cyble,https://cyble.com/blog/feed/,https://cyble.com/blog,False
 Securelist,https://securelist.com/feed,https://securelist.com,False
 DarkReading,https://www.darkreading.com/rss.xml,https://www.darkreading.com/,True
-gbhackers.,https://gbhackers.com/feed/,https://www.darkreading.com/,True
+gbhackers.,https://gbhackers.com/feed/,https://gbhackers.com/,True
+Symantec Threat Intelligence,https://www.security.com/rss/v1/blogs/rss.xml/221,https://www.security.com/threat-intelligence,False
+The DFIR Report,https://thedfirreport.com/feed/,https://thedfirreport.com/,False
+Volexity,https://www.volexity.com/feed/,https://www.volexity.com/blog/,False
+Zscaler ThreatLabz,https://www.zscaler.com/blogs/feeds/security-research,https://www.zscaler.com/blogs/security-research,False
+Elastic Security Labs,https://www.elastic.co/security-labs/rss/feed.xml,https://www.elastic.co/security-labs,False
+Censys,https://censys.com/feed/,https://censys.com/blog,False

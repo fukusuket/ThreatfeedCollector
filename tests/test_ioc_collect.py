@@ -15,6 +15,7 @@ os.environ.setdefault("DAYS_BACK", "7")
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import ioc_collect
+import ioc_extract
 
 
 @pytest.fixture(autouse=True)
@@ -25,6 +26,8 @@ def patch_env(monkeypatch, tmp_path):
     # Make MISP URLs harmless
     monkeypatch.setattr(ioc_collect, "MISP_URL", "http://misp.local")
     monkeypatch.setattr(ioc_collect, "MISP_KEY", "dummy")
+    # main(--no-misp) flips this process-global flag; keep it out of the next test
+    monkeypatch.setattr(ioc_extract, "USE_WARNING_LISTS", ioc_extract.USE_WARNING_LISTS)
 
 
 def test_entry_get_supports_dict_and_obj():
@@ -672,3 +675,30 @@ def test_save_stats_local_survives_malformed_existing_csv(monkeypatch, tmp_path,
     rows = list(csv.DictReader(out.read_text().splitlines()))
     assert [row["blog url"] for row in rows] == ["http://blog/a", "http://blog/b"]
     assert not any("Failed to save stats" in rec.message for rec in caplog.records)
+
+
+def test_main_no_misp_disables_warning_list_filtering(monkeypatch, tmp_path):
+    """--no-misp is for local inspection, so it keeps every candidate IoC rather
+    than trimming known-benign infrastructure (AGENTS.md §11)."""
+    monkeypatch.setattr(ioc_collect, "PyMISP", MagicMock())
+    monkeypatch.setattr(ioc_collect, "MISP_KEY", "")
+    _no_misp_feeds(monkeypatch, tmp_path)
+    monkeypatch.setattr(ioc_collect, "process_article", MagicMock(return_value=False))
+    monkeypatch.setattr(ioc_collect, "save_stats_local", MagicMock())
+
+    ioc_collect.main(["--no-misp"])
+
+    assert ioc_extract.USE_WARNING_LISTS is False
+
+
+def test_main_with_misp_keeps_warning_list_filtering(monkeypatch, tmp_path):
+    monkeypatch.setattr(ioc_collect, "PyMISP", MagicMock(return_value=MagicMock()))
+    feeds = tmp_path / "feeds.csv"
+    feeds.write_text("Vendor,RSS,Blog\nv,http://feed,http://blog\n")
+    monkeypatch.setattr(ioc_collect, "RSS_FEEDS_CSV", str(feeds))
+    monkeypatch.setattr(ioc_collect, "process_feed", MagicMock(return_value=[]))
+    monkeypatch.setattr(ioc_collect, "save_stats", MagicMock())
+
+    ioc_collect.main()
+
+    assert ioc_extract.USE_WARNING_LISTS is True
