@@ -1,4 +1,6 @@
 Vendor, RSS Feed URL, Blog URL, Crawl links
+Cisco Talos,https://blog.talosintelligence.com/rss/,https://blog.talosintelligence.com/,False
+ESET WeLiveSecurity,https://www.welivesecurity.com/en/rss/feed/,https://www.welivesecurity.com/en/,False
 Arctic Wolf,https://arcticwolf.com/feed/,https://arcticwolf.com/,False
 Check Point,https://research.checkpoint.com/feed/,https://research.checkpoint.com/,False
 CrowdStrike,https://www.crowdstrike.com/en-us/blog/feed,https://www.crowdstrike.com/blog/,False
