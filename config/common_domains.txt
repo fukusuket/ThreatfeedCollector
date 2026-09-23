@@ -27,3 +27,23 @@ thehackernews.com
 web3adspanels.com
 cve.org
 darkreading.com
+# Ad / analytics / tracking
+doubleclick.net
+googletagmanager.com
+google-analytics.com
+googlesyndication.com
+googleadservices.com
+adnxs.com
+taboola.com
+outbrain.com
+hotjar.com
+hs-analytics.net
+hubspot.com
+# Share widgets
+addthis.com
+sharethis.com
+addtoany.com
+# Reference sites (no article-specific IoCs)
+mitre.org
+cisa.gov
+first.org

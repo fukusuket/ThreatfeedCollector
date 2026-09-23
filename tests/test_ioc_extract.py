@@ -58,6 +58,60 @@ def test_is_suspicious_url_requires_slash_or_scheme():
     assert ioc_extract.is_suspicious_url("example.com") is False
 
 
+# Ad/analytics/share-widget and reference sites that carry no threat intel.
+@pytest.mark.parametrize(
+    "host",
+    [
+        "doubleclick.net",
+        "googletagmanager.com",
+        "google-analytics.com",
+        "googlesyndication.com",
+        "googleadservices.com",
+        "adnxs.com",
+        "taboola.com",
+        "outbrain.com",
+        "hotjar.com",
+        "hs-analytics.net",
+        "hubspot.com",
+        "addthis.com",
+        "sharethis.com",
+        "addtoany.com",
+        "mitre.org",
+        "cisa.gov",
+        "first.org",
+    ],
+)
+def test_common_domains_exclude_noise_hosts(host):
+    assert ioc_extract.is_suspicious_domain(f"sub.{host}") is False
+    assert ioc_extract.is_suspicious_url(f"https://sub.{host}/path") is False
+
+
+# Services attackers routinely abuse must stay reportable; the URL check is a
+# substring match, so a careless entry (e.g. cloudflare.com, t.co) would hide them.
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://evil.trycloudflare.com/payload",
+        "https://t.me/stealer_logs",
+        "https://evil.workers.dev/x",
+        "https://evil.pages.dev/x",
+        "https://abc.ngrok.io/x",
+        "https://discord.com/api/webhooks/1/x",
+        "https://bit.ly/abc",
+        pytest.param(
+            "https://www.dropbox.com/s/x/payload.zip",
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason="known bug: existing 'x.com' entry substring-matches 'dropbox.com'",
+            ),
+        ),
+    ],
+)
+def test_common_domains_keep_abused_services(url):
+    assert ioc_extract.is_suspicious_url(url) is True
+    assert ioc_extract.is_suspicious_domain(url.split("/")[2]) is True
+
+
 def test_is_valid_url_rejects_redacted_and_suspicious_extensions():
     assert ioc_extract.is_valid_url("https://example.com/redacted") is False
     assert ioc_extract.is_valid_url("https://example.com/file.exe") is False

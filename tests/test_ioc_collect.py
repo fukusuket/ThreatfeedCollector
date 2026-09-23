@@ -222,6 +222,34 @@ def test_fetch_full_content_skips_common_domains(monkeypatch):
     assert len(result) == 0  # child skipped
 
 
+def test_fetch_full_content_skips_ad_and_share_links(monkeypatch):
+    links = [
+        "https://ad.doubleclick.net/ddm/clk/1",
+        "https://www.addtoany.com/share#url=x",
+        "https://attack.mitre.org/techniques/T1059/",
+        "http://child",
+    ]
+    get = MagicMock(return_value=MagicMock(text="", raise_for_status=MagicMock()))
+    monkeypatch.setattr(ioc_collect.requests, "get", get)
+
+    soup = MagicMock()
+    soup.find_all.return_value = [
+        MagicMock(get=MagicMock(return_value=href)) for href in links
+    ]
+    soup.title = MagicMock(string="Main")
+    soup.get_text.return_value = "main"
+    monkeypatch.setattr(ioc_collect, "BeautifulSoup", MagicMock(return_value=soup))
+    monkeypatch.setattr(
+        ioc_collect, "strip_scripts_and_get_text", lambda s: s.get_text()
+    )
+    monkeypatch.setattr(ioc_collect, "to_yyyy_mm_dd", lambda d: "2024-01-01")
+
+    article = {"url": "http://main", "date": "2024-01-01", "vendor": "v", "title": "T"}
+    ioc_collect.fetch_full_content(article, crawl_links=True)
+    fetched = [c.args[0] for c in get.call_args_list]
+    assert fetched == ["http://main", "http://child"]
+
+
 def test_add_event_to_misp_skips_existing(monkeypatch):
     misp = MagicMock()
     misp.search.side_effect = [[1], []]  # first call finds event by title
