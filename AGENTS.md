@@ -12,7 +12,7 @@ A pipeline that ingests untrusted external web content (vendor threat-intel blog
 
 | Module | Role |
 |---|---|
-| `ioc_collect.py` | Entry point. Reads `config/rss_feeds.csv`, fetches feeds in parallel (`ThreadPoolExecutor`), scrapes article HTML, pushes to MISP, writes `ioc_stats_YYYYMMDD.csv`. `--no-misp` skips every MISP call and builds the CSV from locally built events instead — see §11 |
+| `ioc_collect.py` | Entry point. Reads `config/rss_feeds.csv`, fetches feeds in parallel (`ThreadPoolExecutor`), scrapes article HTML, pushes to MISP, writes `ioc_stats_YYYYMMDD.csv`. `--no-misp`: §11 |
 | `ioc_extract.py` | Extracts IoCs (URL / IP / FQDN / hash / Chrome extension ID / CVE / onion address / BTC & XMR address) and builds the `MISPEvent` |
 | `thunt_advisor.py` | LLM calls, dispatched on `LLM_PROVIDER` (`openai` \| `bedrock`). **Intentionally not wired into the pipeline — see §5** |
 | `app.py` | Streamlit dashboard listing MISP events |
@@ -71,9 +71,8 @@ git diff --cached | grep -nEi "(api[_-]?key|secret|token|authkey|BEARER)\s*[:=]\
 
 - Write tests **from the spec**, not by transcribing the implementation. A test whose expected values were read off the code just pins the bug in place.
 - **Never add a test that touches the network, MISP, or an LLM.** Existing tests stub `iocextract` / `PyMISP` / `WARNING_LISTS` / `openai` / `boto3` via `monkeypatch`. Keep it that way.
-- Running a module outside pytest requires `MISP_KEY=dummy` before import (`ioc_collect` calls `sys.exit(1)` without it).
 - When touching IoC extraction or filtering, **add cases for input that must be excluded**, not just input that must match. Exclusion logic that has no exclusion test stays green when it breaks.
-- A bug fix needs a test that **fails on the old code**. Prove it: revert the fix, watch the test go red, restore. Otherwise you have not verified anything.
+- A bug fix needs a test that **fails on the old code**.
 
 ---
 
@@ -146,7 +145,7 @@ Stop and ask before doing any of these:
 
 ## 9. Code conventions
 
-- Python 3.12+ (CI runs 3.14; local is 3.13.2). `ruff` is the only linter/formatter.
+- Python 3.12+ (CI runs 3.14). `ruff` is the only linter/formatter.
 - Log with `logging` f-strings. **Before logging a value, ask whether it is untrusted data or a secret.**
 - Wrap every external I/O in `try/except` and skip the single failing item rather than halting the pipeline. This is a consistent, deliberate pattern across the codebase.
 - Add type hints in the style of the surrounding code.
@@ -181,3 +180,9 @@ Stop and ask before doing any of these:
 - **Coverage differs from MISP mode.** `save_stats(misp)` reports every event in MISP for the last `DAYS_BACK` days, including ones from earlier runs. Without MISP only the current run is known, so `save_stats_local()` merges into an existing `ioc_stats_YYYYMMDD.csv` and deduplicates on `blog url` (existing rows win), which also replaces the server-side duplicate checks. Aggregating across days is the consumer's job.
 - Worker threads return their rows; `main` aggregates them. Do not introduce a shared mutable collector.
 - Publishing this CSV (e.g. to GitHub Pages) creates a **new output boundary** for untrusted data: `title` and `blog url` are attacker-influenced. Escape them and do not auto-link them, the same way I2/I5 constrain `app.py`.
+
+---
+
+## 12. Outbound writes are the user's job (all agents)
+
+An agent never writes to the git remote or any code-hosting service: no `git push`, no `gh` (read-only commands included), no creating or editing issues, PRs, comments, releases, or gists — whether through a CLI, an API call (`curl -X POST`), or an MCP tool. This holds even when asked. Stop at a local commit and give the user the command to run.
