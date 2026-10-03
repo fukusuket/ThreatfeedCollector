@@ -46,7 +46,7 @@ A fix is unverified until you have seen the test fail without it. Write the test
 
 ## 3. Exploring and reading
 
-- This repo is ~10 files, none over 500 lines. **Do not spawn subagents to explore it.** Read it directly.
+- This repo is ~10 source files, the largest under 800 lines. **Do not spawn subagents to explore it.** Read it directly.
 - Run verification **yourself**. Never report a subagent's "it passed" as a verification result.
 - Before asserting anything, check that you can cite it as `file:line`. If you cannot, you have not read it yet.
 
@@ -70,7 +70,7 @@ If you paste fetched content for debugging, label it explicitly as untrusted rat
 
 - **Never run `python ioc_collect.py` on your own initiative.** It reaches out to external sites and **writes to the production MISP instance**. Only on an explicit request.
 - Launching `app.py` (Streamlit) opens a read connection to production MISP. Same rule.
-- Verify through unit tests (AGENTS.md §3). Running the full pipeline is almost never necessary.
+- Outbound writes to the git remote or GitHub are forbidden (AGENTS.md §12). `.claude/settings.json` denies `git push` and `gh` as a backstop; a write it does not name is still forbidden.
 
 ### 4.3 Secrets
 
