@@ -54,7 +54,7 @@ Each gate yields a verdict from a single command.
 # Gate 1 — Lint (must be clean)
 python3 -m ruff check .
 
-# Gate 2 — Unit tests (must be 113 passed, 1 xfailed)
+# Gate 2 — Unit tests (must be 114 passed, 1 xfailed)
 python3 -m pytest -q
 
 # Gate 3 — Security invariant counts (must match the §4 baseline)

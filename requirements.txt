@@ -1,6 +1,7 @@
 feedparser==6.0.12
 pymisp==2.5.*
 requests
+urllib3==2.3.0
 python-dateutil
 beautifulsoup4==4.14.3
 iocextract==1.16.1

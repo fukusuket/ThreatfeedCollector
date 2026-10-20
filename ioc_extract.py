@@ -327,7 +327,7 @@ def extract_iocs_from_content(text: str) -> Dict[str, Set[str]]:
     try:
         hashes = set(iocextract.extract_hashes(text))
         iocs["hashes"] = {h for h in hashes if len(h) in [32, 40, 64, 128]}
-        iocs["browser_extensions"] = set(EXTENSION_ID_PATTERN.findall(text or ""))
+        iocs["browser_extensions"] = set(EXTENSION_ID_PATTERN.findall(text))
         iocs["cves"] = extract_cves(text)
         iocs["onion_addresses"] = extract_onion_addresses(text)
         iocs["btc_addresses"] = extract_btc_addresses(text)
@@ -349,23 +349,15 @@ def extract_iocs_from_content(text: str) -> Dict[str, Set[str]]:
         valid_urls = {u for u in extracted_urls if is_valid_url(u)}
         iocs["urls"] = {u for u in valid_urls if is_suspicious_url(u)}
 
+        # extract_ipv4s also finds the IP host of an IP-literal URL, so the URL
+        # loop below needs no IP branch: such a host is dropped from fqdns by
+        # is_suspicious_domain.
         ip_addresses = set(iocextract.extract_ipv4s(refanged_text, refang=True))
 
         domains = set(non_url_domains)
         for url in valid_urls:
-            try:
-                if "://" in url:
-                    if re.match(r"\d{1,3}(\.\d{1,3}){3}", url):
-                        ip_match = re.match(r"\d{1,3}(\.\d{1,3}){3}", url)
-                        if ip_match and is_global_ipv4(ip_match.group(0)):
-                            ip_addresses.add(ip_match.group(0))
-                    else:
-                        domain_part = url.split("://")[1].split("/")[0].split(":")[0]
-                        if is_suspicious_domain(domain_part):
-                            domains.add(domain_part)
-            except Exception as e:
-                logger.debug(f"Failed to parse url {url}: {e}")
-                continue
+            if "://" in url:
+                domains.add(url.split("://")[1].split("/")[0].split(":")[0])
 
         iocs["fqdns"] = {d for d in domains if is_suspicious_domain(d)}
         # An onion address already written as `onion-address` must not also be

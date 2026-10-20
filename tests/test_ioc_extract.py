@@ -168,6 +168,26 @@ def test_extract_iocs_filters_warning_and_common(monkeypatch, reset_warning_list
     assert "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" in result["browser_extensions"]
 
 
+def test_extract_iocs_ip_literal_url_yields_ip_not_fqdn(monkeypatch, reset_warning_lists):
+    # Stub outputs mirror real iocextract on the defanged text below.
+    text = "C2: hxxp://45.77.10[.]3:8080/x.php\nLAN: hxxp://10.0.0[.]1/a"
+    monkeypatch.setattr(
+        ioc_extract,
+        "iocextract",
+        types.SimpleNamespace(
+            extract_hashes=lambda t: [],
+            extract_urls=lambda t, refang=True: [
+                "http://45.77.10.3:8080/x.php",
+                "http://10.0.0.1/a",
+            ],
+            extract_ipv4s=lambda t, refang=True: ["45.77.10.3", "10.0.0.1"],
+        ),
+    )
+    result = ioc_extract.extract_iocs_from_content(text)
+    assert result["ips"] == {"45.77.10.3"}
+    assert result["fqdns"] == set()
+
+
 def test_extract_iocs_ignores_empty():
     assert ioc_extract.extract_iocs_from_content("") == {
         "urls": set(),

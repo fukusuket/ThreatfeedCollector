@@ -282,7 +282,7 @@ def add_event_to_misp(article: Article, iocs: Dict, misp: PyMISP) -> bool:
     logger.info(f"Creating MISP event: {event_info}")
     try:
         existing_events = misp.search(eventinfo=event_info)
-        if existing_events and len(existing_events) > 0:
+        if existing_events:
             logger.info(f"Event with same title already exists, skipping: {event_info}")
             return False
         logger.info(f"No existing event found with title: {event_info}")
@@ -415,7 +415,7 @@ def _write_stats_csv(rows: List[Dict[str, str]]) -> None:
 
 def save_stats(misp: PyMISP) -> None:
     try:
-        date_from = (datetime.now() - timedelta(days=int(DAYS_BACK))).strftime(
+        date_from = (datetime.now() - timedelta(days=DAYS_BACK)).strftime(
             "%Y-%m-%d"
         )
         date_to = datetime.now().strftime("%Y-%m-%d")
@@ -540,7 +540,7 @@ def main(argv: Sequence[str] = ()) -> None:
         blog_url = row[2].strip() if len(row) > 2 else ""
         crawl_links = row[3].strip() if len(row) > 3 else ""
         logger.info(f"Processing vendor: {vendor}")
-        should_crawl_links = str(crawl_links).lower() == "true"
+        should_crawl_links = crawl_links.lower() == "true"
         crawl_same_domain = False
 
         if feed_url:

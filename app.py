@@ -87,7 +87,7 @@ else:
                 is_external_url = category == "External analysis" and attr_type == "url"
                 if is_external_url:
                     continue
-                if not is_external_url and any(
+                if any(
                     kw in attr_type for kw in ("url", "ip", "domain", "hostname")
                 ):
                     value = defang(value)
